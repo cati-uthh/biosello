@@ -29,7 +29,7 @@ export default function InicioScreen({ sesionActiva, alIniciarSesion }) {
                 <Text style={styles.tituloInvitacion}>Toma el control de tu inventario</Text>
 
                 <Image
-                    source={require('./assets/ilustracion-inicio.png')}
+                    source={require('./assets/logo-oficial.png')}
                     style={styles.ilustracion}
                     resizeMode="contain"
                 />

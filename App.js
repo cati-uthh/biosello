@@ -6,26 +6,26 @@ import { Ionicons } from '@expo/vector-icons'; // Para los íconos
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SplashScreen from './SplashScreen';
 import EscanerQR from './EscanerQR';
+import InicioScreen from './inicio';
 
 // Pantallas temporales (placeholders) para Inicio y Cuenta
-function InicioScreen() { return <View style={{ flex: 1, backgroundColor: 'white' }} /> }
 function CuentaScreen() { return <View style={{ flex: 1, backgroundColor: 'white' }} /> }
 
 const Tab = createBottomTabNavigator();
 
 function CustomHeader() {
-  const insets = useSafeAreaInsets(); 
+  const insets = useSafeAreaInsets();
 
   return (
     <ImageBackground
       source={require('./assets/fondo-header.png')}
-      style={[styles.headerBackground, { paddingTop: insets.top }]} 
+      style={[styles.headerBackground, { paddingTop: insets.top }]}
       resizeMode="cover"
     >
-      <Image 
-        source={require('./assets/logo-oficial.png')} 
-        style={styles.headerLogo} 
-        resizeMode="contain" 
+      <Image
+        source={require('./assets/logo-oficial.png')}
+        style={styles.headerLogo}
+        resizeMode="contain"
       />
     </ImageBackground>
   );
@@ -33,6 +33,7 @@ function CustomHeader() {
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
+  const [sesionActiva, setSesionActiva] = useState(false);
 
   if (isLoading) {
     return <SplashScreen onFinish={() => setIsLoading(false)} />;
@@ -64,10 +65,18 @@ export default function App() {
             height: 60,
           },
           // Aquí le decimos que use nuestro Header personalizado en todas las pantallas
-          header: () => <CustomHeader />,
+          header: () => sesionActiva ? <CustomHeader /> : null,
         })}
       >
-        <Tab.Screen name="Inicio" component={InicioScreen} />
+        <Tab.Screen name="Inicio">
+          {(props) => (
+            <InicioScreen
+              {...props}
+              sesionActiva={sesionActiva}
+              alIniciarSesion={() => setSesionActiva(true)}
+            />
+          )}
+        </Tab.Screen>
         <Tab.Screen name="Escanear QR" component={EscanerQR} />
         <Tab.Screen name="Cuenta" component={CuentaScreen} />
       </Tab.Navigator>
@@ -77,7 +86,7 @@ export default function App() {
 
 const styles = StyleSheet.create({
   headerBackground: {
-    height: 100, 
+    height: 100,
     justifyContent: 'center', // Centra el logo verticalmente en el espacio disponible
     alignItems: 'center', // Centra el logo horizontalmente
   },
