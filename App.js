@@ -11,6 +11,9 @@ import EscanerQR from './EscanerQR';
 import IngresoManual from './IngresoManual'; // <-- NUEVA IMPORTACIÓN
 
 function InicioScreen() { return <View style={{ flex: 1, backgroundColor: 'white' }} /> }
+import InicioScreen from './inicio';
+
+// Pantallas temporales (placeholders) para Inicio y Cuenta
 function CuentaScreen() { return <View style={{ flex: 1, backgroundColor: 'white' }} /> }
 
 const Tab = createBottomTabNavigator();
@@ -26,24 +29,25 @@ function EscanerStackScreen() {
   );
 }
 function CustomHeader() {
-  const insets = useSafeAreaInsets(); 
+  const insets = useSafeAreaInsets();
 
   return (
     <ImageBackground
       source={require('./assets/fondo-header.png')}
-      style={[styles.headerBackground, { paddingTop: insets.top }]} 
+      style={[styles.headerBackground, { paddingTop: insets.top }]}
       resizeMode="cover"
     >
-      <Image 
-        source={require('./assets/logo-oficial.png')} 
-        style={styles.headerLogo} 
-        resizeMode="contain" 
+      <Image
+        source={require('./assets/logo-oficial.png')}
+        style={styles.headerLogo}
+        resizeMode="contain"
       />
     </ImageBackground>
   );
 }
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
+  const [sesionActiva, setSesionActiva] = useState(false);
 
   if (isLoading) {
     return <SplashScreen onFinish={() => setIsLoading(false)} />;
@@ -62,12 +66,25 @@ export default function App() {
           },
           tabBarActiveTintColor: '#003366',
           tabBarInactiveTintColor: 'gray',
-          tabBarStyle: { backgroundColor: '#F3E5F5', paddingBottom: 5, height: 60 },
-          header: () => <CustomHeader />,
+          tabBarStyle: {
+            backgroundColor: '#F3E5F5', // Color de fondo lila claro de tu diseño
+            paddingBottom: 5,
+            height: 60,
+          },
+          // Aquí le decimos que use nuestro Header personalizado en todas las pantallas
+          header: () => sesionActiva ? <CustomHeader /> : null,
         })}
       >
-        <Tab.Screen name="Inicio" component={InicioScreen} />
-        <Tab.Screen name="Escanear QR" component={EscanerStackScreen} />
+        <Tab.Screen name="Inicio">
+          {(props) => (
+            <InicioScreen
+              {...props}
+              sesionActiva={sesionActiva}
+              alIniciarSesion={() => setSesionActiva(true)}
+            />
+          )}
+        </Tab.Screen>
+        <Tab.Screen name="Escanear QR" component={EscanerQR} />
         <Tab.Screen name="Cuenta" component={CuentaScreen} />
       </Tab.Navigator>
     </NavigationContainer>
@@ -75,6 +92,13 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  headerBackground: { height: 110, justifyContent: 'center', alignItems: 'center' },
-  headerLogo: { width: 200, height: 50 },
+  headerBackground: {
+    height: 100,
+    justifyContent: 'center', // Centra el logo verticalmente en el espacio disponible
+    alignItems: 'center', // Centra el logo horizontalmente
+  },
+  headerLogo: {
+    width: 200, // Ajusta si el logo se ve muy pequeño o muy grande
+    height: 50,
+  },
 });
