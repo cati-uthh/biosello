@@ -1,18 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Image, StyleSheet, ImageBackground } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons'; // Para los íconos
+import { createNativeStackNavigator } from '@react-navigation/native-stack'; // <-- NUEVA IMPORTACIÓN
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import SplashScreen from './SplashScreen';
 import EscanerQR from './EscanerQR';
+import IngresoManual from './IngresoManual'; // <-- NUEVA IMPORTACIÓN
+
+function InicioScreen() { return <View style={{ flex: 1, backgroundColor: 'white' }} /> }
 import InicioScreen from './inicio';
 
 // Pantallas temporales (placeholders) para Inicio y Cuenta
 function CuentaScreen() { return <View style={{ flex: 1, backgroundColor: 'white' }} /> }
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator(); // <-- CREAMOS EL STACK
 
+// Este componente agrupa el Escáner y el Ingreso Manual dentro de la misma pestaña
+function EscanerStackScreen() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="EscanerPrincipal" component={EscanerQR} />
+      <Stack.Screen name="IngresoManual" component={IngresoManual} />
+    </Stack.Navigator>
+  );
+}
 function CustomHeader() {
   const insets = useSafeAreaInsets();
 
@@ -30,7 +45,6 @@ function CustomHeader() {
     </ImageBackground>
   );
 }
-
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [sesionActiva, setSesionActiva] = useState(false);
@@ -43,21 +57,14 @@ export default function App() {
     <NavigationContainer>
       <Tab.Navigator
         screenOptions={({ route }) => ({
-          // Configuración de los íconos de la barra inferior
           tabBarIcon: ({ focused, color, size }) => {
             let iconName;
-
-            if (route.name === 'Inicio') {
-              iconName = focused ? 'home' : 'home-outline';
-            } else if (route.name === 'Escanear QR') {
-              iconName = focused ? 'scan' : 'scan-outline'; // O 'camera' / 'camera-outline'
-            } else if (route.name === 'Cuenta') {
-              iconName = focused ? 'person' : 'person-outline';
-            }
-
+            if (route.name === 'Inicio') iconName = focused ? 'home' : 'home-outline';
+            else if (route.name === 'Escanear QR') iconName = focused ? 'scan' : 'scan-outline';
+            else if (route.name === 'Cuenta') iconName = focused ? 'person' : 'person-outline';
             return <Ionicons name={iconName} size={size} color={color} />;
           },
-          tabBarActiveTintColor: '#003366', // Color azul oscuro para el tab activo (ajusta según tu Figma)
+          tabBarActiveTintColor: '#003366',
           tabBarInactiveTintColor: 'gray',
           tabBarStyle: {
             backgroundColor: '#F3E5F5', // Color de fondo lila claro de tu diseño
