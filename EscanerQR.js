@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Text, View, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { CameraView, Camera } from "expo-camera";
 
-export default function EscanerQR() {
+export default function EscanerQR({ navigation }) {
   const [hasPermission, setHasPermission] = useState(null);
   const [scanned, setScanned] = useState(false);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
@@ -49,12 +49,15 @@ export default function EscanerQR() {
             <View style={styles.cameraPlaceholder} />
          )}
          
-         {/* Aquí podrías agregar una imagen PNG con transparencia que sea el marco cuadrado de tu diseño, posicionada de forma absoluta sobre la cámara */}
+         
       </View>
 
       <Text style={styles.helpText}>¿No detecta el código QR?</Text>
       
-      <TouchableOpacity style={styles.manualButton}>
+      <TouchableOpacity 
+        style={styles.manualButton} 
+        onPress={() => navigation.navigate('IngresoManual')}
+      >
         <Text style={styles.manualButtonText}>Ingresar manualmente</Text>
       </TouchableOpacity>
 
