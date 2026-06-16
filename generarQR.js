@@ -6,7 +6,7 @@ import {
     TouchableOpacity,
     ScrollView,
     Alert,
-    ActivityIndicator // Para mostrar que está cargando mientras consulta la BD
+    ActivityIndicator 
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
@@ -14,49 +14,41 @@ export default function GenerarQR({ onVolver }) {
     const [qrValor, setQrValor] = useState('');
     const [datosLote, setDatosLote] = useState(null);
     const [mostrarTarjeta, setMostrarTarjeta] = useState(false);
-    const [cargando, setCargando] = useState(false); // Estado para el spinner de carga
+    const [cargando, setCargando] = useState(false); 
 
-    // 🧬 FUNCIÓN ADAPTADA PARA BASE DE DATOS
     const ejecutarGeneracionLote = async () => {
-        setCargando(true); // Activamos animación de carga
+        setCargando(true); 
 
         try {
-            /* 🌐 CONEXIÓN BASE DE DATOS (PROXIMAMENTE):
-              Aquí es donde harás la petición HTTP POST a tu backend en PHP.
-              Ejemplo de estructura futura:
-              
-              const respuesta = await fetch('https://tu-api.com/controlador/registrar_lote.php', {
+            /*
+                const respuesta = await fetch('https://tu-api.com/controlador/registrar_lote.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  tenant_id: 1,
-                  producto: "Corte Primario - Rib Eye",
-                  origen: "Rancho El Huasteco, Hgo.",
-                  temperatura: "3.5°C"
+                    tenant_id: 1,
+                    producto: "Corte Primario - Rib Eye",
+                    origen: "Rancho El Huasteco, Hgo.",
+                    temperatura: "3.5°C"
                 })
-              });
-              const datosServidor = await respuesta.json();
+                });
+                const datosServidor = await respuesta.json();
             */
 
-            // 🕒 SIMULACIÓN DE RETARDO DE RED (Simula que tarda 1.5 segundos en responder el servidor)
             await new Promise(resolve => setTimeout(resolve, 1500));
 
-            // Simulamos la respuesta que te daría tu base de datos MySQL (ya con un ID auto-incremental real)
             const datosDesdeBD = {
                 tenant_id: 1,
-                lote_id: "LOT-2026-" + Math.floor(Math.random() * 9000 + 1000), // En el futuro será: datosServidor.lote_id
+                lote_id: "LOT-2026-" + Math.floor(Math.random() * 9000 + 1000),
                 producto: "Corte Primario - Rib Eye",
                 origen: "Rancho El Huasteco, Hgo.",
-                fechaSacrificio: new Date().toISOString().split('T')[0], // Fecha real del sistema
+                fechaSacrificio: new Date().toISOString().split('T')[0], 
                 fechaEmpaque: new Date().toISOString().split('T')[0],
                 temperaturaConservacion: "3.5°C",
                 estado: "Fresco / Óptima Calidad"
             };
 
-            // Estructuramos la URL dinámica que se guardará en el QR
             const urlPayload = `https://biosell.app/trazabilidad?tenant=${datosDesdeBD.tenant_id}&lote=${datosDesdeBD.lote_id}`;
 
-            // Actualizamos los estados de React con la respuesta del servidor
             setDatosLote(datosDesdeBD);
             setQrValor(urlPayload);
             setMostrarTarjeta(true);
@@ -67,7 +59,7 @@ export default function GenerarQR({ onVolver }) {
             Alert.alert("Error de Conexión", "No se pudo conectar con el servidor de BioSell. Intente más tarde.");
             console.error(error);
         } finally {
-            setCargando(false); // Apagamos el spinner de carga
+            setCargando(false);
         }
     };
 
@@ -80,7 +72,6 @@ export default function GenerarQR({ onVolver }) {
             <Text style={styles.tituloSeccionQR}>Módulo de Trazabilidad Operativa</Text>
             <Text style={styles.subtituloSeccionQR}>Generación y vinculación de códigos de salida en mostrador [RF-02, RF-10].</Text>
 
-            {/* Botón de acción condicional (Muestra spinner si está cargando) */}
             <TouchableOpacity
                 style={[styles.botonAccionQR, cargando && styles.botonDeshabilitado]}
                 onPress={ejecutarGeneracionLote}
@@ -93,7 +84,6 @@ export default function GenerarQR({ onVolver }) {
                 )}
             </TouchableOpacity>
 
-            {/* Vista previa de la etiqueta (Se alimenta directo del estado datosLote) */}
             {mostrarTarjeta && (
                 <View style={styles.tarjetaEtiqueta}>
                     <Text style={styles.encabezadoEtiqueta}>Etiqueta de Salida BioSell</Text>

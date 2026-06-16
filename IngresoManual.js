@@ -9,7 +9,6 @@ export default function IngresoManual() {
       alert('Por favor, ingrese un número válido.');
       return;
     }
-    // Aquí se conectará posteriormente con la base de datos de Biosello
     alert(`Buscando lote de carne con código: ${codigo}`);
   };
 

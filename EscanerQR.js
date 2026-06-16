@@ -8,14 +8,12 @@ export default function EscanerQR({ navigation }) {
   const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   useEffect(() => {
-    // Verificamos el estado del permiso al cargar
     (async () => {
       const { status } = await Camera.getCameraPermissionsAsync();
       if (status === 'granted') {
-         setHasPermission(true);
+        setHasPermission(true);
       } else {
-         // Si no tiene permiso, mostramos el modal que diseñaste
-         setShowPermissionModal(true);
+        setShowPermissionModal(true);
       }
     })();
   }, []);
@@ -37,37 +35,35 @@ export default function EscanerQR({ navigation }) {
         Coloque el código QR en el cuadro{'\n'}para escanear
       </Text>
 
-      {/* Contenedor del escáner con el marco visual */}
       <View style={styles.scannerWrapper}>
-         {hasPermission ? (
-            <CameraView
-              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-              barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-              style={styles.camera}
-            />
-         ) : (
-            <View style={styles.cameraPlaceholder} />
-         )}
-         
-         
+        {hasPermission ? (
+          <CameraView
+            onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+            barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+            style={styles.camera}
+          />
+        ) : (
+          <View style={styles.cameraPlaceholder} />
+        )}
+
+
       </View>
 
       <Text style={styles.helpText}>¿No detecta el código QR?</Text>
-      
-      <TouchableOpacity 
-        style={styles.manualButton} 
+
+      <TouchableOpacity
+        style={styles.manualButton}
         onPress={() => navigation.navigate('IngresoManual')}
       >
         <Text style={styles.manualButtonText}>Ingresar manualmente</Text>
       </TouchableOpacity>
 
       {scanned && (
-         <TouchableOpacity style={[styles.manualButton, {marginTop: 10, backgroundColor: '#003366'}]} onPress={() => setScanned(false)}>
-            <Text style={styles.manualButtonText}>Escanear de nuevo</Text>
-         </TouchableOpacity>
+        <TouchableOpacity style={[styles.manualButton, { marginTop: 10, backgroundColor: '#003366' }]} onPress={() => setScanned(false)}>
+          <Text style={styles.manualButtonText}>Escanear de nuevo</Text>
+        </TouchableOpacity>
       )}
 
-      {/* Modal de Permisos (Imita el primer modal de tu diseño) */}
       <Modal visible={showPermissionModal} transparent={true} animationType="fade">
         <View style={styles.modalBackground}>
           <View style={styles.modalContainer}>
@@ -109,8 +105,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cameraPlaceholder: {
-     flex: 1,
-     backgroundColor: '#E8E8E8',
+    flex: 1,
+    backgroundColor: '#E8E8E8',
   },
   helpText: {
     fontSize: 14,

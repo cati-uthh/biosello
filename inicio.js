@@ -15,7 +15,6 @@ export default function InicioScreen({ sesionActiva, alIniciarSesion }) {
 
     const [pantallaInterna, setPantallaInterna] = useState('menu');
 
-    // VISTA A: USUARIO NO REGISTRADO (Figma de bienvenida)
     if (!sesionActiva) {
         return (
             <View style={styles.contenedorInvitacion}>
@@ -58,14 +57,12 @@ export default function InicioScreen({ sesionActiva, alIniciarSesion }) {
         );
     }
 
-    // VISTA B: ADMINISTRADOR LOGUEADO (Figma del Dashboard principal)
     return (
         <ScrollView style={styles.contenedorAdmin} showsVerticalScrollIndicator={false}>
             <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
             <Text style={styles.bienvenidaAdmin}>Bienvenido: <Text style={{ fontWeight: 'bold' }}>[Usuario]</Text></Text>
 
-            {/* Alerta de caducidad */}
             <View style={styles.tarjetaAlerta}>
                 <View style={styles.alertaIconoContainer}>
                     <Ionicons name="warning" size={24} color="white" />
@@ -78,7 +75,6 @@ export default function InicioScreen({ sesionActiva, alIniciarSesion }) {
 
             <Text style={styles.preguntaSeccion}>¿Que desea hacer?</Text>
 
-            {/* Grid de Accesos Rápidos */}
             <View style={styles.gridMenu}>
                 <TouchableOpacity style={styles.tarjetaMenu}>
                     <View style={[styles.iconoFondo, { backgroundColor: '#ffe4e6' }]}>
@@ -118,7 +114,6 @@ export default function InicioScreen({ sesionActiva, alIniciarSesion }) {
 
             <Text style={styles.preguntaSeccion}>Mis Lotes:</Text>
 
-            {/* Indicadores de Lotes */}
             <View style={styles.gridKpis}>
                 <View style={styles.tarjetaKpi}>
                     <Text style={styles.kpiNumero}>14</Text>

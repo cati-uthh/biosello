@@ -2,16 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { View, Image, StyleSheet, ImageBackground } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack'; // <-- IMPORTACIÓN CORREGIDA
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons'; 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import SplashScreen from './SplashScreen';
 import EscanerQR from './EscanerQR';
-import InicioScreen from './inicio'; // <-- IMPORTACIÓN DEL ARCHIVO DE TU COMPAÑERO
+import InicioScreen from './inicio'; 
 import IngresoManual from './IngresoManual';
 
-// Pantalla temporal (placeholder) solo para Cuenta
 function CuentaScreen() { return <View style={{ flex: 1, backgroundColor: 'white' }} /> }
 
 const Tab = createBottomTabNavigator();
