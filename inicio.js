@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Image,
@@ -9,8 +9,11 @@ import {
     StatusBar
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import GenerarQR from './generarQR';
 
 export default function InicioScreen({ sesionActiva, alIniciarSesion }) {
+
+    const [pantallaInterna, setPantallaInterna] = useState('menu');
 
     // VISTA A: USUARIO NO REGISTRADO (Figma de bienvenida)
     if (!sesionActiva) {
@@ -29,7 +32,7 @@ export default function InicioScreen({ sesionActiva, alIniciarSesion }) {
                 <Text style={styles.tituloInvitacion}>Toma el control de tu inventario</Text>
 
                 <Image
-                    source={require('./assets/logo-oficial.png')}
+                    source={require('./assets/add-register.jpeg')}
                     style={styles.ilustracion}
                     resizeMode="contain"
                 />
@@ -47,6 +50,11 @@ export default function InicioScreen({ sesionActiva, alIniciarSesion }) {
                     ¿Ya tienes cuenta? <Text style={styles.linkLogin}>Inicia sesión aquí.</Text>
                 </Text>
             </View>
+        );
+    }
+    if (pantallaInterna === 'generar_qr') {
+        return (
+            <GenerarQR onVolver={() => setPantallaInterna('menu')} />
         );
     }
 
@@ -80,7 +88,10 @@ export default function InicioScreen({ sesionActiva, alIniciarSesion }) {
                     <Text style={styles.tarjetaSubtitulo}>Entrada nueva de lote</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.tarjetaMenu}>
+                <TouchableOpacity
+                    style={styles.tarjetaMenu}
+                    onPress={() => setPantallaInterna('generar_qr')}
+                >
                     <View style={[styles.iconoFondo, { backgroundColor: '#f1f5f9' }]}>
                         <Ionicons name="qr-code" size={24} color="#475569" />
                     </View>
