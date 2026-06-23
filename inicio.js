@@ -1,69 +1,69 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import {
-    View,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    ScrollView,
-    StatusBar
+    View, Image, StyleSheet, Text, TouchableOpacity, ScrollView, StatusBar, Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import GenerarQR from './generarQR';
+import { AuthContext } from './AuthContext'; // Importamos el contexto
 
-export default function InicioScreen({ sesionActiva, alIniciarSesion }) {
-
+export default function InicioScreen({ navigation }) {
+    // Usamos el contexto para obtener el estado y la función para cambiarlo
+    const { sesionActiva, setSesionActiva } = useContext(AuthContext); 
     const [pantallaInterna, setPantallaInterna] = useState('menu');
 
-    // VISTA A: USUARIO NO REGISTRADO (Figma de bienvenida)
+    // 1. Referencias de animación para cada elemento
+    const fadeTitulo = useRef(new Animated.Value(0)).current;
+    const fadeIcono = useRef(new Animated.Value(0)).current;
+    const fadeTexto = useRef(new Animated.Value(0)).current;
+    const fadeBotones = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        // Solo animamos si estamos en la pantalla de bienvenida
+        if (!sesionActiva) {
+            // Animated.stagger hace que las animaciones arranquen en cascada (cada 200ms)
+            Animated.stagger(200, [
+                Animated.timing(fadeTitulo, { toValue: 1, duration: 600, useNativeDriver: true }),
+                Animated.timing(fadeIcono, { toValue: 1, duration: 600, useNativeDriver: true }),
+                Animated.timing(fadeTexto, { toValue: 1, duration: 600, useNativeDriver: true }),
+                Animated.timing(fadeBotones, { toValue: 1, duration: 600, useNativeDriver: true }),
+            ]).start();
+        }
+    }, [sesionActiva]);
+
+    // VISTA A: USUARIO NO REGISTRADO (Diseño Animado con Ícono 1:1)
     if (!sesionActiva) {
         return (
             <View style={styles.contenedorInvitacion}>
-                <StatusBar barStyle="light-content" backgroundColor="#002855" />
-
-                <Image
-                    source={require('./assets/logo-oficial.png')}
-                    style={styles.logoInvitacion}
-                    resizeMode="contain"
-                />
-
-                <Text style={styles.eslogan}>Transparencia del campo a la mesa.</Text>
-
-                <Text style={styles.tituloInvitacion}>Toma el control de tu inventario</Text>
-
-                <Image
-                    source={require('./assets/add-register.jpeg')}
-                    style={styles.ilustracion}
-                    resizeMode="contain"
-                />
-
-                <Text style={styles.descripcionInvitacion}>
-                    Registra tus lotes, monitorea la cadena de frío y genera códigos QR
-                    de trazabilidad para dar confianza a tus clientes.
-                </Text>
-
-                <TouchableOpacity style={styles.botonRegistrar} onPress={alIniciarSesion}>
-                    <Text style={styles.textoBotonRegistrar}>Registrar mi Negocio</Text>
-                </TouchableOpacity>
-
-                <Text style={styles.textoLogin}>
-                    ¿Ya tienes cuenta? <Text style={styles.linkLogin}>Inicia sesión aquí.</Text>
-                </Text>
+                <StatusBar barStyle="light-content" backgroundColor="#041E3A" />
+                <Animated.View style={{ opacity: fadeTitulo }}><Text style={styles.tituloInvitacion}>Toma el control de tu inventario</Text></Animated.View>
+                <Animated.View style={{ opacity: fadeIcono }}>
+                    <Image source={require('./assets/icon.png')} style={styles.iconoCuadrado} resizeMode="cover" />
+                </Animated.View>
+                <Animated.View style={{ opacity: fadeTexto }}><Text style={styles.descripcionInvitacion}>Registra tus lotes, monitorea la cadena de frío y genera códigos QR de trazabilidad.</Text></Animated.View>
+                
+                <Animated.View style={{ opacity: fadeBotones, width: '100%', alignItems: 'center' }}>
+                    <TouchableOpacity style={styles.botonRegistrar} onPress={() => navigation.navigate('actRegistroNegocio')}>
+                        <Text style={styles.textoBotonRegistrar}>Registrar mi Negocio</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.textoLogin}>
+                        ¿Ya tienes cuenta?{' '}
+                        <Text style={styles.linkLogin} onPress={() => navigation.navigate('actInicioSesion')}>
+                            Inicia sesión aquí.
+                        </Text>
+                    </Text>
+                </Animated.View>
             </View>
         );
     }
-    if (pantallaInterna === 'generar_qr') {
-        return (
-            <GenerarQR onVolver={() => setPantallaInterna('menu')} />
-        );
-    }
+    
+    // --- VISTA B: DASHBOARD ADMINISTRADOR ---
+    if (pantallaInterna === 'generar_qr') return <GenerarQR onVolver={() => setPantallaInterna('menu')} />;
 
-    // VISTA B: ADMINISTRADOR LOGUEADO (Figma del Dashboard principal)
     return (
         <ScrollView style={styles.contenedorAdmin} showsVerticalScrollIndicator={false}>
+            
             <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-
-            <Text style={styles.bienvenidaAdmin}>Bienvenido: <Text style={{ fontWeight: 'bold' }}>[Usuario]</Text></Text>
+            <Text style={styles.bienvenidaAdmin}>Bienvenido al Sistema <Text style={{ fontWeight: 'bold' }}>[Usuario]</Text></Text>
 
             {/* Alerta de caducidad */}
             <View style={styles.tarjetaAlerta}>
@@ -139,50 +139,50 @@ export default function InicioScreen({ sesionActiva, alIniciarSesion }) {
 }
 
 const styles = StyleSheet.create({
+    // --- ESTILOS VISTA A ---
     contenedorInvitacion: {
         flex: 1,
-        backgroundColor: '#002855',
+        backgroundColor: '#041E3A',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 24,
-    },
-    logoInvitacion: {
-        width: 160,
-        height: 45,
-        marginBottom: 5,
-    },
-    eslogan: {
-        color: '#38bdf8',
-        fontSize: 12,
-        fontWeight: '500',
-        marginBottom: 30,
+        paddingHorizontal: 30,
     },
     tituloInvitacion: {
         color: '#ffffff',
-        fontSize: 20,
+        fontSize: 22,
         fontWeight: 'bold',
         textAlign: 'center',
-        marginBottom: 20,
+        marginBottom: 40,
     },
-    ilustracion: {
-        width: '85%',
-        height: 200,
-        marginBottom: 25,
+    // NUEVO ESTILO: Ícono 1:1 con bordes redondeados
+    iconoCuadrado: {
+        width: 300, // Tamaño del ancho
+        height: 300, // Exactamente el mismo tamaño para que sea 1:1
+        borderRadius: 10, // Curvatura estilo iOS (25% del tamaño aprox)
+        marginBottom: 40,
+        backgroundColor: '#FFFFFF', // Fondo blanco por si la imagen tiene transparencias
+        // Sombra sutil para darle profundidad
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 8, 
     },
     descripcionInvitacion: {
         color: '#e2e8f0',
-        fontSize: 14,
+        fontSize: 16,
         textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: 35,
+        lineHeight: 24,
+        marginBottom: 40,
+        paddingHorizontal: 10,
     },
     botonRegistrar: {
-        backgroundColor: '#cc0033',
+        backgroundColor: '#D32F2F',
         width: '100%',
-        paddingVertical: 14,
+        paddingVertical: 15,
         borderRadius: 8,
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 25,
     },
     textoBotonRegistrar: {
         color: '#ffffff',
@@ -191,13 +191,15 @@ const styles = StyleSheet.create({
     },
     textoLogin: {
         color: '#ffffff',
-        fontSize: 14,
+        fontSize: 15,
     },
     linkLogin: {
-        color: '#38bdf8',
+        color: '#ffffff',
         fontWeight: 'bold',
         textDecorationLine: 'underline',
     },
+
+    // --- ESTILOS VISTA B (Mantenidos igual) ---
     contenedorAdmin: {
         flex: 1,
         backgroundColor: '#ffffff',
