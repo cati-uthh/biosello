@@ -15,7 +15,7 @@ import { AuthContext } from './AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function ActInicioSesion({ navigation }) {
-    const { setSesionActiva } = useContext(AuthContext);
+    const { setSesionActiva, setUsuario } = useContext(AuthContext);
     const [loading, setLoading] = useState(false);
     const [mostrarContrasena, setMostrarContrasena] = useState(false);
     const [credenciales, setCredenciales] = useState({
@@ -50,6 +50,7 @@ export default function ActInicioSesion({ navigation }) {
                         onPress: () => {
                             // 4. AQUÍ ES DONDE ACTIVAMOS LA SESIÓN Y NAVEGAMOS:
                             setSesionActiva(true);
+                            setUsuario(result.usuario || result.user || result.data || null);
                             navigation.reset({
                                 index: 0,
                                 routes: [{ 
