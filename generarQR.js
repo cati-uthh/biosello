@@ -25,14 +25,14 @@ export default function GenerarQR({ onVolver }) {
               Aquí es donde harás la petición HTTP POST a tu backend en PHP.
               Ejemplo de estructura futura:
               
-              const respuesta = await fetch('https://tu-api.com/controlador/registrar_lote.php', {
+              const respuesta = await fetch('https://biosello/backend.vercel.app/controlador/registrar_lote.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  tenant_id: 1,
-                  producto: "Corte Primario - Rib Eye",
-                  origen: "Rancho El Huasteco, Hgo.",
-                  temperatura: "3.5°C"
+                    tenant_id: 1,
+                    producto: "Corte Primario - Rib Eye",
+                    origen: "Rancho El Huasteco, Hgo.",
+                    temperatura: "3.5°C"
                 })
               });
               const datosServidor = await respuesta.json();

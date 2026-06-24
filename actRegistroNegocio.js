@@ -23,9 +23,11 @@ export default function ActRegistroNegocio({ navigation }) {
     {/*// NOTA:
     // Esta función esta compuesta de esta manera debido a que:
     El motor web (Fetch/FileReader): Falla porque Android no permite usar herramientas de navegador web (ArrayBuffer) para leer archivos locales pesados por seguridad.
-    La caché (copyToCacheDirectory: true): Falla porque las nuevas políticas de "Scoped Storage" de Android bloquean a las aplicaciones de leer sus propias carpetas temporales si el archivo viene de afuera.
-    El archivo original (copyToCacheDirectory: false): Falla porque devuelve un enlace content:// (un túnel seguro de Android), y la función readAsStringAsync es tan estricta que solo sabe leer enlaces que empiezan con file://.
-    //  Se implementa la función de Expo llamada copyAsync. Esta función sí tiene los permisos de Android para entrar al túnel content://, tomar el archivo, y hacer una copia limpia dentro de la carpeta segura y privada de la propia aplicación (documentDirectory). Una vez que el archivo es "nuestro", lo leemos en Base64 sin que Android nos bloquee y luego lo borramos para no gastar memoria*/}
+    La caché (copyToCacheDirectory: true): Falla porque las nuevas políticas de "Scoped Storage" de Android bloquean a las aplicaciones de leer sus propias carpetas 
+    temporales si el archivo viene de afuera. El archivo original (copyToCacheDirectory: false): Falla porque devuelve un enlace content:// (un túnel seguro de Android), 
+    y la función readAsStringAsync es tan estricta que solo sabe leer enlaces que empiezan con file://. Se implementa la función de Expo llamada copyAsync. 
+    Esta función sí tiene los permisos de Android para entrar al túnel content://, tomar el archivo, y hacer una copia limpia dentro de la carpeta segura y privada 
+    de la propia aplicación (documentDirectory). Una vez que el archivo es "nuestro", lo leemos en Base64 sin que Android nos bloquee y luego lo borramos para no gastar memoria*/}
     const seleccionarDocumento = async () => {
         try {
             const result = await DocumentPicker.getDocumentAsync({
