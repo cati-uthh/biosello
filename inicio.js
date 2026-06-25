@@ -4,6 +4,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import GenerarQR from './generarQR';
+import RegistrarLoteAnimal from './RegistrarLoteAnimal';
+import MisLotes from './MisLotes';
 import { AuthContext } from './AuthContext'; // Importamos el contexto
 
 export default function InicioScreen({ navigation }) {
@@ -58,6 +60,8 @@ export default function InicioScreen({ navigation }) {
     
     // --- VISTA B: DASHBOARD ADMINISTRADOR ---
     if (pantallaInterna === 'generar_qr') return <GenerarQR onVolver={() => setPantallaInterna('menu')} />;
+    if (pantallaInterna === 'registrar_lote') return <RegistrarLoteAnimal onVolver={() => setPantallaInterna('menu')} />;
+    if (pantallaInterna === 'mis_lotes') return <MisLotes onVolver={() => setPantallaInterna('menu')} />;
 
     return (
         <ScrollView style={styles.contenedorAdmin} showsVerticalScrollIndicator={false}>
@@ -78,7 +82,10 @@ export default function InicioScreen({ navigation }) {
             <Text style={styles.preguntaSeccion}>¿Que desea hacer?</Text>
 
             <View style={styles.gridMenu}>
-                <TouchableOpacity style={styles.tarjetaMenu}>
+                <TouchableOpacity
+                    style={styles.tarjetaMenu}
+                    onPress={() => setPantallaInterna('registrar_lote')}
+                >
                     <View style={[styles.iconoFondo, { backgroundColor: '#ffe4e6' }]}>
                         <Ionicons name="add" size={28} color="#f43f5e" />
                     </View>
@@ -105,23 +112,26 @@ export default function InicioScreen({ navigation }) {
                     <Text style={styles.tarjetaSubtitulo}>Gestionar accesos</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.tarjetaMenu}>
+                <TouchableOpacity
+                    style={styles.tarjetaMenu}
+                    onPress={() => setPantallaInterna('mis_lotes')}
+                >
                     <View style={[styles.iconoFondo, { backgroundColor: '#fef9c3' }]}>
                         <Ionicons name="clipboard" size={24} color="#ca8a04" />
                     </View>
-                    <Text style={styles.tarjetaTitulo}>Ver reportes</Text>
-                    <Text style={styles.tarjetaSubtitulo}>Inventario y caducidad</Text>
+                    <Text style={styles.tarjetaTitulo}>Ver lotes</Text>
+                    <Text style={styles.tarjetaSubtitulo}>Inventario por especie</Text>
                 </TouchableOpacity>
             </View>
 
             <Text style={styles.preguntaSeccion}>Mis Lotes:</Text>
 
             <View style={styles.gridKpis}>
-                <View style={styles.tarjetaKpi}>
+                <TouchableOpacity style={styles.tarjetaKpi} onPress={() => setPantallaInterna('mis_lotes')}>
                     <Text style={styles.kpiNumero}>14</Text>
                     <Text style={styles.kpiLabel}>Lotes de carne</Text>
-                    <Text style={[styles.kpiEstado, { color: '#10b981' }]}>Excelente calidad!</Text>
-                </View>
+                    <Text style={[styles.kpiEstado, { color: '#10b981' }]}>Ver inventario</Text>
+                </TouchableOpacity>
 
                 <View style={styles.tarjetaKpi}>
                     <Text style={[styles.kpiNumero, { color: '#dc2626' }]}>2</Text>
