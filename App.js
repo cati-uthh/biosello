@@ -1,5 +1,5 @@
-import React, { useState, useContext } from 'react'; // <-- Añadido useContext
-import { View, Image, StyleSheet, ImageBackground, Text } from 'react-native';
+import React, { useContext, useState } from 'react';
+import { Image, ImageBackground, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -10,12 +10,10 @@ import SplashScreen from './SplashScreen';
 import EscanerQR from './EscanerQR';
 import InicioScreen from './inicio';
 import IngresoManual from './IngresoManual';
-
+import CuentaScreen from './CuentaScreen';
 import ActRegistroNegocio from './actRegistroNegocio';
 import ActInicioSesion from './ActInicioSesion';
-import { AuthProvider, AuthContext } from './AuthContext'; // <-- Importamos AuthContext
-
-function CuentaScreen() { return <View style={{ flex: 1, backgroundColor: 'white' }} /> }
+import { AuthProvider, AuthContext } from './AuthContext';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -31,6 +29,7 @@ function EscanerStackScreen() {
 
 function CustomHeader() {
   const insets = useSafeAreaInsets();
+
   return (
     <ImageBackground
       source={require('./assets/fondo-header.png')}
@@ -46,24 +45,19 @@ function CustomHeader() {
   );
 }
 
-// 2. ENCAPSULAMOS TUS PESTAÑAS EN UN COMPONENTE SEPARADO
 function MainTabs() {
-  // Ahora MainTabs lee la sesión real directamente del contexto
-  const { sesionActiva } = useContext(AuthContext); 
+  const { sesionActiva } = useContext(AuthContext);
 
   return (
     <Tab.Navigator
       initialRouteName="Inicio"
+      backBehavior="initialRoute"
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-          if (route.name === 'Inicio') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Escanear QR') {
-            iconName = focused ? 'scan' : 'scan-outline';
-          } else if (route.name === 'Cuenta') {
-            iconName = focused ? 'person' : 'person-outline';
-          }
+        tabBarIcon: ({ color, size, focused }) => {
+          let iconName = 'home-outline';
+          if (route.name === 'Inicio') iconName = focused ? 'home' : 'home-outline';
+          if (route.name === 'Escanear QR') iconName = focused ? 'scan' : 'scan-outline';
+          if (route.name === 'Cuenta') iconName = focused ? 'person' : 'person-outline';
           return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#003366',
@@ -74,7 +68,6 @@ function MainTabs() {
           height: 60,
         },
         header: () => <CustomHeader />,
-        // Si estamos en Inicio Y NO hay sesión, lo oculta. En cualquier otro caso, lo muestra.
         headerShown: route.name === 'Inicio' ? sesionActiva : true,
       })}
     >
@@ -95,38 +88,32 @@ export default function App() {
   return (
     <AuthProvider>
       <NavigationContainer>
-      <Stack.Navigator initialRouteName="MainTabs">
-        
-        {/* Usamos component={} de manera limpia */}
-        <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
-
-        {/* --- PANTALLAS DE AUTENTICACIÓN (A Pantalla Completa) --- */}
-        <Stack.Screen
-          name="actRegistroNegocio"
-          component={ActRegistroNegocio}
-          options={{
-            headerShown: true,
-            title: 'Registro de Negocio',
-            headerStyle: { backgroundColor: '#041E3A' }, // Fondo azul institucional BioSello
-            headerTintColor: '#ffffff', // Flecha blanca
-            headerBackTitleVisible: false // Quita el texto feo de "Atrás" en iOS
-          }}
-        />
-
-        <Stack.Screen
-          name="actInicioSesion"
-          component={ActInicioSesion}
-          options={{
-            headerShown: true,
-            title: 'Iniciar Sesión',
-            headerStyle: { backgroundColor: '#041E3A' },
-            headerTintColor: '#ffffff',
-            headerBackTitleVisible: false
-          }}
-        />
-
-      </Stack.Navigator>
-    </NavigationContainer>
+        <Stack.Navigator initialRouteName="MainTabs">
+          <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
+          <Stack.Screen
+            name="actRegistroNegocio"
+            component={ActRegistroNegocio}
+            options={{
+              headerShown: true,
+              title: 'Registro de Negocio',
+              headerStyle: { backgroundColor: '#041E3A' },
+              headerTintColor: '#ffffff',
+              headerBackTitleVisible: false
+            }}
+          />
+          <Stack.Screen
+            name="actInicioSesion"
+            component={ActInicioSesion}
+            options={{
+              headerShown: true,
+              title: 'Iniciar Sesión',
+              headerStyle: { backgroundColor: '#041E3A' },
+              headerTintColor: '#ffffff',
+              headerBackTitleVisible: false
+            }}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
     </AuthProvider>
   );
 }
