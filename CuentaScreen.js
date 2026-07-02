@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from './AuthContext';
+import { COLORS, SIZES, FONTS } from './src/theme/theme';
 
 const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
 
@@ -171,7 +172,7 @@ export default function CuentaScreen({ navigation }) {
     <ScrollView style={styles.contenedor} contentContainerStyle={styles.contenido}>
       <View style={styles.header}>
         <View style={styles.avatar}>
-          <Ionicons name="person" size={28} color="#ffffff" />
+          <Ionicons name="person" size={28} color={COLORS.blancoPuro} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.titulo}>{perfil?.nombre || 'Mi cuenta'}</Text>
@@ -196,11 +197,11 @@ export default function CuentaScreen({ navigation }) {
       </View>
 
       <TouchableOpacity style={[styles.botonGuardar, guardando && styles.botonDeshabilitado]} onPress={guardarCambios} disabled={guardando}>
-        {guardando ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.textoGuardar}>Guardar cambios</Text>}
+        {guardando ? <ActivityIndicator color={COLORS.blancoPuro} /> : <Text style={styles.textoGuardar}>Guardar cambios</Text>}
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.botonSalir} onPress={cerrarSesion}>
-        <Ionicons name="log-out-outline" size={18} color="#D32F2F" />
+        <Ionicons name="log-out-outline" size={18} color={COLORS.rojoIntenso} />
         <Text style={styles.textoSalir}>Cerrar sesión</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -208,33 +209,24 @@ export default function CuentaScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  contenedor: { flex: 1, backgroundColor: '#ffffff', paddingHorizontal: 20, paddingTop: 18 },
-  contenido: { paddingBottom: 40 },
-  cargando: { flex: 1, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
-  estadoTexto: { color: '#64748b', marginTop: 8 },
-  sesionVacia: { flex: 1, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  sesionIcono: { width: 96, height: 96, borderRadius: 20, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
-  sesionTitulo: { color: '#002855', fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
-  sesionTexto: { color: '#64748b', fontSize: 15, lineHeight: 22, textAlign: 'center', marginBottom: 24 },
-  botonRegistro: { backgroundColor: '#002855', borderRadius: 9, minHeight: 50, width: '100%', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginBottom: 10 },
-  textoBotonRegistro: { color: '#ffffff', fontSize: 15, fontWeight: 'bold' },
-  botonLogin: { borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#ffffff', borderRadius: 9, minHeight: 50, width: '100%', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginBottom: 10 },
-  textoBotonLogin: { color: '#002855', fontSize: 15, fontWeight: 'bold' },
-  botonInicio: { minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  textoBotonInicio: { color: '#64748b', fontSize: 14, fontWeight: 'bold' },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
-  avatar: { width: 52, height: 52, borderRadius: 12, backgroundColor: '#002855', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  titulo: { color: '#002855', fontSize: 22, fontWeight: 'bold' },
-  subtitulo: { color: '#64748b', fontSize: 13, marginTop: 3, textTransform: 'capitalize' },
-  card: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, padding: 14, marginBottom: 14, backgroundColor: '#ffffff' },
-  cardTitulo: { color: '#0f172a', fontSize: 16, fontWeight: 'bold', marginBottom: 10 },
-  campo: { marginBottom: 12 },
-  label: { color: '#64748b', fontSize: 12, fontWeight: 'bold', marginBottom: 6 },
-  input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: '#0f172a', fontSize: 14 },
-  inputBloqueado: { color: '#64748b', backgroundColor: '#f1f5f9' },
-  botonGuardar: { backgroundColor: '#002855', borderRadius: 9, minHeight: 50, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  textoGuardar: { color: '#ffffff', fontSize: 15, fontWeight: 'bold' },
-  botonDeshabilitado: { backgroundColor: '#94a3b8' },
-  botonSalir: { borderWidth: 1, borderColor: '#fecaca', backgroundColor: '#fff1f2', borderRadius: 9, minHeight: 50, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
-  textoSalir: { color: '#D32F2F', fontSize: 15, fontWeight: 'bold' }
+    contenedor: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 18 },
+    contenido: { paddingBottom: 40 },
+    cargando: { flex: 1, backgroundColor: COLORS.blancoPuro, alignItems: 'center', justifyContent: 'center' },
+    estadoTexto: { color: '#64748b', marginTop: 8 },
+    header: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
+    avatar: { width: 52, height: 52, borderRadius: SIZES.radioTarjeta, backgroundColor: COLORS.azulMarino, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    titulo: { color: COLORS.azulMarino, fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold },
+    subtitulo: { color: '#64748b', fontSize: 13, marginTop: 3, textTransform: 'capitalize' },
+    card: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioTarjeta, padding: 14, marginBottom: 14, backgroundColor: COLORS.blancoPuro },
+    cardTitulo: { color: '#0f172a', fontSize: SIZES.tituloSeccion, fontWeight: FONTS.bold, marginBottom: 10 },
+    campo: { marginBottom: 12 },
+    label: { color: '#64748b', fontSize: 12, fontWeight: FONTS.bold, marginBottom: 6 },
+    input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 12, paddingVertical: 10, color: '#0f172a', fontSize: 14 },
+    inputBloqueado: { color: '#64748b', backgroundColor: '#f1f5f9' },
+    botonGuardar: { backgroundColor: COLORS.azulMarino, borderRadius: 9, minHeight: 50, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+    textoGuardar: { color: COLORS.blancoPuro, fontSize: 15, fontWeight: FONTS.bold },
+    botonDeshabilitado: { backgroundColor: '#94a3b8' },
+    botonSalir: { borderWidth: 1, borderColor: '#fecaca', backgroundColor: '#fff1f2', borderRadius: 9, minHeight: 50, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+    textoSalir: { color: COLORS.rojoIntenso, fontSize: 15, fontWeight: FONTS.bold }
 });
+

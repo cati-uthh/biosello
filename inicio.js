@@ -16,6 +16,7 @@ import GenerarQR from './generarQR';
 import RegistrarLoteAnimal from './RegistrarLoteAnimal';
 import MisLotes from './MisLotes';
 import { AuthContext } from './AuthContext';
+import { COLORS, SIZES, FONTS } from './src/theme/theme';
 
 const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
 
@@ -90,7 +91,7 @@ export default function InicioScreen({ navigation }) {
     if (!sesionActiva) {
         return (
             <View style={styles.contenedorInvitacion}>
-                <StatusBar barStyle="light-content" backgroundColor="#041E3A" />
+                <StatusBar barStyle="light-content" backgroundColor={COLORS.azulMarino}/>
                 <Animated.View style={{ opacity: fadeTitulo }}>
                     <Text style={styles.tituloInvitacion}>Toma el control de tu inventario</Text>
                 </Animated.View>
@@ -128,7 +129,7 @@ export default function InicioScreen({ navigation }) {
 
     return (
         <ScrollView style={styles.contenedorAdmin} showsVerticalScrollIndicator={false}>
-            <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+            <StatusBar barStyle="dark-content" backgroundColor={COLORS.blancoPuro} />
             <Text style={styles.bienvenidaAdmin}>
                 Bienvenido al Sistema <Text style={{ fontWeight: 'bold' }}>{usuario?.nombre || 'Usuario'}</Text>
             </Text>
@@ -203,30 +204,30 @@ export default function InicioScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-    contenedorInvitacion: { flex: 1, backgroundColor: '#041E3A', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 },
-    tituloInvitacion: { color: '#ffffff', fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 40 },
-    iconoCuadrado: { width: 300, height: 300, borderRadius: 10, marginBottom: 40, backgroundColor: '#FFFFFF', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8 },
-    descripcionInvitacion: { color: '#e2e8f0', fontSize: 16, textAlign: 'center', lineHeight: 24, marginBottom: 40, paddingHorizontal: 10 },
-    botonRegistrar: { backgroundColor: '#D32F2F', width: '100%', paddingVertical: 15, borderRadius: 8, alignItems: 'center', marginBottom: 25 },
-    textoBotonRegistrar: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
-    textoLogin: { color: '#ffffff', fontSize: 15 },
-    linkLogin: { color: '#ffffff', fontWeight: 'bold', textDecorationLine: 'underline' },
-    contenedorAdmin: { flex: 1, backgroundColor: '#ffffff', paddingHorizontal: 20, paddingTop: 15 },
+    contenedorInvitacion: { flex: 1, backgroundColor: COLORS.azulMarino, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 },
+    tituloInvitacion: { color: COLORS.blancoPuro, fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold, textAlign: 'center', marginBottom: 40 },
+    iconoCuadrado: { width: 300, height: 300, borderRadius: 10, marginBottom: 40, backgroundColor: COLORS.blancoPuro, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8 },
+    descripcionInvitacion: { color: '#e2e8f0', fontSize: SIZES.textoBase, textAlign: 'center', lineHeight: 24, marginBottom: 40, paddingHorizontal: 10 },
+    botonRegistrar: { backgroundColor: COLORS.rojoIntenso, width: '100%', paddingVertical: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginBottom: 25 },
+    textoBotonRegistrar: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, fontWeight: FONTS.bold },
+    textoLogin: { color: COLORS.blancoPuro, fontSize: 15 },
+    linkLogin: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, textDecorationLine: 'underline' },
+    contenedorAdmin: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 15 },
     bienvenidaAdmin: { fontSize: 20, color: '#1e293b', marginBottom: 15 },
-    tarjetaAlerta: { backgroundColor: '#fff1f2', borderWidth: 1, borderColor: '#ffe4e6', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-    alertaIconoContainer: { backgroundColor: '#ef4444', padding: 8, borderRadius: 8, marginRight: 12 },
+    tarjetaAlerta: { backgroundColor: '#fff1f2', borderWidth: 1, borderColor: '#ffe4e6', borderRadius: SIZES.radioTarjeta, padding: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+    alertaIconoContainer: { backgroundColor: COLORS.peligro, padding: 8, borderRadius: SIZES.radioBoton, marginRight: 12 },
     alertaTextoContainer: { flex: 1 },
-    alertaTitulo: { fontSize: 15, fontWeight: 'bold', color: '#1e293b' },
-    alertaSubtitulo: { fontSize: 13, color: '#dc2626', marginTop: 2 },
-    preguntaSeccion: { fontSize: 18, fontWeight: 'bold', color: '#64748b', marginVertical: 12 },
+    alertaTitulo: { fontSize: 15, fontWeight: FONTS.bold, color: '#1e293b' },
+    alertaSubtitulo: { fontSize: 13, color: COLORS.peligro, marginTop: 2 },
+    preguntaSeccion: { fontSize: SIZES.tituloSeccion + 2, fontWeight: FONTS.bold, color: '#64748b', marginVertical: 12 },
     gridMenu: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12, marginBottom: 15 },
-    tarjetaMenu: { backgroundColor: '#ffffff', width: '48%', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#e2e8f0' },
-    iconoFondo: { width: 44, height: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-    tarjetaTitulo: { fontSize: 14, fontWeight: 'bold', color: '#0f172a' },
+    tarjetaMenu: { backgroundColor: COLORS.blancoPuro, width: '48%', borderRadius: SIZES.radioTarjeta, padding: 16, borderWidth: 1, borderColor: '#e2e8f0' },
+    iconoFondo: { width: 44, height: 44, borderRadius: SIZES.radioBoton, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+    tarjetaTitulo: { fontSize: 14, fontWeight: FONTS.bold, color: '#0f172a' },
     tarjetaSubtitulo: { fontSize: 11, color: '#94a3b8', marginTop: 4 },
     gridKpis: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-    tarjetaKpi: { backgroundColor: '#ffffff', width: '48%', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#e2e8f0' },
-    kpiNumero: { fontSize: 32, fontWeight: 'bold', color: '#0f172a' },
-    kpiLabel: { fontSize: 12, color: '#64748b', marginTop: 2 },
-    kpiEstado: { fontSize: 11, fontWeight: 'bold', marginTop: 4 }
+    tarjetaKpi: { backgroundColor: COLORS.blancoPuro, width: '48%', borderRadius: SIZES.radioTarjeta, padding: 16, borderWidth: 1, borderColor: '#e2e8f0' },
+    kpiNumero: { fontSize: SIZES.kpi, fontWeight: FONTS.bold, color: '#0f172a' },
+    kpiLabel: { fontSize: SIZES.textoSecundario, color: '#64748b', marginTop: 2 },
+    kpiEstado: { fontSize: 11, fontWeight: FONTS.bold, marginTop: 4 }
 });

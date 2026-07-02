@@ -3,9 +3,9 @@
     "checkJs": false,
     "jsx": "react-native",
     "baseUrl": ".",
-    "ignoreDeprecations": "6.0",
     "allowJs": true,
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "ignoreDeprecations": "6.0"
   },
   "exclude": [
     "node_modules",
