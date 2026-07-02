@@ -14,8 +14,8 @@ import { AuthContext } from './AuthContext';
 
 const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
 
-export default function CuentaScreen() {
-  const { usuario, setUsuario, setSesionActiva } = useContext(AuthContext);
+export default function CuentaScreen({ navigation }) {
+  const { sesionActiva, usuario, setUsuario, setSesionActiva } = useContext(AuthContext);
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [perfil, setPerfil] = useState(null);
@@ -139,6 +139,34 @@ export default function CuentaScreen() {
     );
   }
 
+  if (!sesionActiva || !idUsuario) {
+    return (
+      <View style={styles.sesionVacia}>
+        <View style={styles.sesionIcono}>
+          <Ionicons name="person-circle-outline" size={64} color="#002855" />
+        </View>
+        <Text style={styles.sesionTitulo}>Tu cuenta aun no esta activa</Text>
+        <Text style={styles.sesionTexto}>
+          Para ver o editar tu perfil, registra tu negocio o inicia sesion con una cuenta existente.
+        </Text>
+
+        <TouchableOpacity style={styles.botonRegistro} onPress={() => navigation.navigate('actRegistroNegocio')}>
+          <Ionicons name="business-outline" size={18} color="#ffffff" />
+          <Text style={styles.textoBotonRegistro}>Registrar mi negocio</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.botonLogin} onPress={() => navigation.navigate('actInicioSesion')}>
+          <Ionicons name="log-in-outline" size={18} color="#002855" />
+          <Text style={styles.textoBotonLogin}>Iniciar sesion</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.botonInicio} onPress={() => navigation.navigate('Inicio')}>
+          <Text style={styles.textoBotonInicio}>Volver a inicio</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.contenedor} contentContainerStyle={styles.contenido}>
       <View style={styles.header}>
@@ -184,6 +212,16 @@ const styles = StyleSheet.create({
   contenido: { paddingBottom: 40 },
   cargando: { flex: 1, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
   estadoTexto: { color: '#64748b', marginTop: 8 },
+  sesionVacia: { flex: 1, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  sesionIcono: { width: 96, height: 96, borderRadius: 20, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
+  sesionTitulo: { color: '#002855', fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
+  sesionTexto: { color: '#64748b', fontSize: 15, lineHeight: 22, textAlign: 'center', marginBottom: 24 },
+  botonRegistro: { backgroundColor: '#002855', borderRadius: 9, minHeight: 50, width: '100%', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginBottom: 10 },
+  textoBotonRegistro: { color: '#ffffff', fontSize: 15, fontWeight: 'bold' },
+  botonLogin: { borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#ffffff', borderRadius: 9, minHeight: 50, width: '100%', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginBottom: 10 },
+  textoBotonLogin: { color: '#002855', fontSize: 15, fontWeight: 'bold' },
+  botonInicio: { minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  textoBotonInicio: { color: '#64748b', fontSize: 14, fontWeight: 'bold' },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
   avatar: { width: 52, height: 52, borderRadius: 12, backgroundColor: '#002855', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   titulo: { color: '#002855', fontSize: 22, fontWeight: 'bold' },
