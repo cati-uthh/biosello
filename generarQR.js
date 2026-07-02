@@ -9,6 +9,8 @@ import {
     ActivityIndicator // Para mostrar que está cargando mientras consulta la BD
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import { COLORS, SIZES, FONTS } from './src/theme/theme';
+
 
 export default function GenerarQR({ onVolver }) {
     const [qrValor, setQrValor] = useState('');
@@ -87,7 +89,7 @@ export default function GenerarQR({ onVolver }) {
                 disabled={cargando}
             >
                 {cargando ? (
-                    <ActivityIndicator size="small" color="#ffffff" />
+                    <ActivityIndicator size="small" color={COLORS.blancoPuro} />
                 ) : (
                     <Text style={styles.textoBotonQR}>🧬 Registrar Lote y Crear QR</Text>
                 )}
@@ -103,7 +105,7 @@ export default function GenerarQR({ onVolver }) {
                             value={qrValor}
                             size={170}
                             color="#002855"
-                            backgroundColor="#ffffff"
+                            backgroundColor={COLORS.blancoPuro}
                         />
                     </View>
 
@@ -120,7 +122,7 @@ export default function GenerarQR({ onVolver }) {
                         style={styles.botonImprimir}
                         onPress={() => Alert.alert("Impresora", "Enviando formato de impresión a la tiqueteadora Bluetooth...")}
                     >
-                        <Text style={styles.textoBotonImprimir}>🖨️ Imprimir Ticket Adhesivo</Text>
+                        <Text style={styles.textoBotonImprimir}>Imprimir Ticket Adhesivo</Text>
                     </TouchableOpacity>
                 </View>
             )}
@@ -130,21 +132,21 @@ export default function GenerarQR({ onVolver }) {
 }
 
 const styles = StyleSheet.create({
-    contenedorQR: { flex: 1, backgroundColor: '#ffffff', paddingHorizontal: 20, paddingTop: 15 },
+    contenedorQR: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 15 },
     botonRegresarLink: { marginVertical: 10 },
-    textoRegresarLink: { color: '#002855', fontWeight: 'bold', fontSize: 14 },
-    tituloSeccionQR: { fontSize: 22, fontWeight: 'bold', color: '#002855', marginTop: 10 },
+    textoRegresarLink: { color: COLORS.azulMarino, fontWeight: FONTS.bold, fontSize: 14 },
+    tituloSeccionQR: { fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold, color: COLORS.azulMarino, marginTop: 10 },
     subtituloSeccionQR: { fontSize: 13, color: '#64748b', marginTop: 4, marginBottom: 20 },
-    botonAccionQR: { backgroundColor: '#cc0033', paddingVertical: 16, borderRadius: 10, alignItems: 'center', elevation: 3, height: 55, justifyContent: 'center' },
+    botonAccionQR: { backgroundColor: COLORS.rojoIntenso, paddingVertical: 16, borderRadius: 10, alignItems: 'center', elevation: 3, height: 55, justifyContent: 'center' },
     botonDeshabilitado: { backgroundColor: '#94a3b8' },
-    textoBotonQR: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
-    tarjetaEtiqueta: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 16, padding: 20, marginTop: 25, alignItems: 'center', elevation: 2 },
-    encabezadoEtiqueta: { fontSize: 16, fontWeight: 'bold', color: '#334155', marginBottom: 15, textTransform: 'uppercase', letterSpacing: 1 },
-    bloqueQR: { padding: 12, backgroundColor: '#ffffff', borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1' },
-    codigoRespaldo: { fontSize: 15, fontWeight: 'bold', color: '#002855', marginTop: 15, letterSpacing: 0.5 },
-    tablaInfo: { width: '100%', backgroundColor: '#ffffff', borderRadius: 8, padding: 12, marginTop: 15, borderWidth: 1, borderColor: '#e2e8f0' },
+    textoBotonQR: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, fontWeight: FONTS.bold },
+    tarjetaEtiqueta: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioTarjeta, padding: 20, marginTop: 25, alignItems: 'center', elevation: 2 },
+    encabezadoEtiqueta: { fontSize: SIZES.textoBase, fontWeight: FONTS.bold, color: '#334155', marginBottom: 15, textTransform: 'uppercase', letterSpacing: 1 },
+    bloqueQR: { padding: 12, backgroundColor: COLORS.blancoPuro, borderRadius: SIZES.radioTarjeta, borderWidth: 1, borderColor: '#cbd5e1' },
+    codigoRespaldo: { fontSize: 15, fontWeight: FONTS.bold, color: COLORS.azulMarino, marginTop: 15, letterSpacing: 0.5 },
+    tablaInfo: { width: '100%', backgroundColor: COLORS.blancoPuro, borderRadius: SIZES.radioBoton, padding: 12, marginTop: 15, borderWidth: 1, borderColor: '#e2e8f0' },
     infoLinea: { fontSize: 13, color: '#475569', marginVertical: 3 },
-    bold: { fontWeight: 'bold', color: '#1e293b' },
-    botonImprimir: { backgroundColor: '#002855', width: '100%', paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 20 },
-    textoBotonImprimir: { color: '#ffffff', fontWeight: 'bold', fontSize: 14 }
+    bold: { fontWeight: FONTS.bold, color: '#1e293b' },
+    botonImprimir: { backgroundColor: COLORS.azulMarino, width: '100%', paddingVertical: 12, borderRadius: SIZES.radioBoton, alignItems: 'center', marginTop: 20 },
+    textoBotonImprimir: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: 14 }
 });

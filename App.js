@@ -5,7 +5,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import SplashScreen from './SplashScreen';
 import EscanerQR from './EscanerQR';
 import InicioScreen from './inicio';
@@ -14,6 +13,7 @@ import CuentaScreen from './CuentaScreen';
 import ActRegistroNegocio from './actRegistroNegocio';
 import ActInicioSesion from './ActInicioSesion';
 import { AuthProvider, AuthContext } from './AuthContext';
+import { COLORS, SIZES, FONTS } from './src/theme/theme';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -96,8 +96,8 @@ export default function App() {
             options={{
               headerShown: true,
               title: 'Registro de Negocio',
-              headerStyle: { backgroundColor: '#041E3A' },
-              headerTintColor: '#ffffff',
+              headerStyle: { backgroundColor: COLORS.azulMarino },
+              headerTintColor: COLORS.blancoPuro,
               headerBackTitleVisible: false
             }}
           />
@@ -107,8 +107,8 @@ export default function App() {
             options={{
               headerShown: true,
               title: 'Iniciar Sesión',
-              headerStyle: { backgroundColor: '#041E3A' },
-              headerTintColor: '#ffffff',
+              headerStyle: { backgroundColor: COLORS.azulMarino },
+              headerTintColor: COLORS.blancoPuro,
               headerBackTitleVisible: false
             }}
           />
@@ -117,6 +117,7 @@ export default function App() {
     </AuthProvider>
   );
 }
+
 
 const styles = StyleSheet.create({
   headerBackground: {

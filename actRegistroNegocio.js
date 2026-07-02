@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { COLORS, SIZES, FONTS } from './src/theme/theme';
+
 
 const passwordRules = [
     { key: 'length', text: 'Mínimo 8 caracteres', test: (value) => value.length >= 8 },
@@ -189,7 +191,7 @@ export default function ActRegistroNegocio({ navigation }) {
                 </TouchableOpacity>
 
                 <TouchableOpacity style={[styles.mainButton, loading && styles.botonDeshabilitado]} onPress={manejarRegistro} disabled={loading}>
-                    {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.mainButtonText}>Registrar mi Negocio</Text>}
+                    {loading ? <ActivityIndicator color={COLORS.blancoPuro} /> : <Text style={styles.mainButtonText}>Registrar mi Negocio</Text>}
                 </TouchableOpacity>
             </ScrollView>
         </View>
@@ -197,20 +199,20 @@ export default function ActRegistroNegocio({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#041E3A' },
-    container: { flex: 1, backgroundColor: '#041E3A', padding: 20 },
-    title: { fontSize: 24, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', marginVertical: 20 },
-    sectionTitle: { fontSize: 16, color: '#FFFFFF', marginTop: 15, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: '#00518B', paddingBottom: 5 },
-    input: { backgroundColor: '#FFFFFF', borderRadius: 8, padding: 12, marginBottom: 10, color: '#000000' },
-    inputError: { borderWidth: 2, borderColor: '#FFC107' },
-    errorText: { color: '#FFC107', fontSize: 12, marginBottom: 10, marginTop: -5, marginLeft: 5 },
+    root: { flex: 1, backgroundColor: COLORS.azulMarino},
+    container: { flex: 1, backgroundColor: COLORS.azulMarino, padding: 20 },
+    title: { fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold, color: COLORS.blancoPuro, textAlign: 'center', marginVertical: 20 },
+    sectionTitle: { fontSize: SIZES.tituloSeccion, color: COLORS.blancoPuro, marginTop: 15, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: COLORS.azulCeruleo, paddingBottom: 5 },
+    input: { backgroundColor: COLORS.blancoPuro, borderRadius: SIZES.radioInput, padding: 12, marginBottom: 10, color: COLORS.textoOscuro },
+    inputError: { borderWidth: 2, borderColor: COLORS.amarilloAlerta },
+    errorText: { color: COLORS.amarilloAlerta, fontSize: SIZES.textoSecundario, marginBottom: 10, marginTop: -5, marginLeft: 5 },
     passwordRules: { marginTop: -2, marginBottom: 10 },
-    ruleText: { color: '#cbd5e1', fontSize: 12, lineHeight: 18 },
-    ruleOk: { color: '#86efac', fontWeight: 'bold' },
-    uploadButton: { backgroundColor: '#00518B', padding: 12, borderRadius: 8, alignItems: 'center', marginBottom: 20, borderStyle: 'dashed', borderWidth: 1, borderColor: '#FFFFFF' },
-    uploadButtonText: { color: '#FFFFFF', fontWeight: '500' },
-    mainButton: { backgroundColor: '#D32F2F', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10, marginBottom: 50 },
+    ruleText: { color: '#cbd5e1', fontSize: SIZES.textoSecundario, lineHeight: 18 },
+    ruleOk: { color: COLORS.exito, fontWeight: FONTS.bold },
+    uploadButton: { backgroundColor: COLORS.azulCeruleo, padding: 12, borderRadius: SIZES.radioBoton, alignItems: 'center', marginBottom: 20, borderStyle: 'dashed', borderWidth: 1, borderColor: COLORS.blancoPuro },
+    uploadButtonText: { color: COLORS.blancoPuro, fontWeight: '500' },
+    mainButton: { backgroundColor: COLORS.rojoIntenso, padding: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginTop: 10, marginBottom: 50 },
     botonDeshabilitado: { backgroundColor: '#94a3b8' },
-    mainButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
-    uploadButtonSuccess: { borderColor: '#10b981', backgroundColor: '#064e3b' }
+    mainButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: SIZES.textoBase },
+    uploadButtonSuccess: { borderColor: COLORS.exito, backgroundColor: '#064e3b' }
 });

@@ -14,6 +14,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import CalendarioModal from './CalendarioModal';
 import { AuthContext } from './AuthContext';
+import { COLORS, SIZES, FONTS } from './src/theme/theme';
+
 
 const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
 
@@ -489,11 +491,11 @@ export default function MisLotes({ onVolver }) {
                         </View>
 
                         <TouchableOpacity style={styles.botonPrimario} onPress={() => abrirEdicion(loteSeleccionado)}>
-                            <Ionicons name="create" size={18} color="#ffffff" />
+                            <Ionicons name="create" size={18} color={COLORS.blancoPuro} />
                             <Text style={styles.textoBotonPrimario}>Editar lote</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.botonEliminar} onPress={() => confirmarEliminar(loteSeleccionado)}>
-                            <Ionicons name="trash" size={18} color="#D32F2F" />
+                            <Ionicons name="trash" size={18} color={COLORS.rojoIntenso} />
                             <Text style={styles.textoBotonEliminar}>Eliminar lote</Text>
                         </TouchableOpacity>
                     </ScrollView>
@@ -537,16 +539,16 @@ export default function MisLotes({ onVolver }) {
                         {renderCampoEdicion({ grupo: 'animal', campo: 'meses_edad', label: 'Edad en meses', keyboardType: 'numeric' })}
                         <TouchableOpacity style={styles.toggleFila} onPress={() => actualizarForm('animal', 'arete_faltante', !formEdicion.animal.arete_faltante)}>
                             <View style={[styles.checkbox, formEdicion.animal.arete_faltante && styles.checkboxActivo]}>
-                                {formEdicion.animal.arete_faltante && <Ionicons name="checkmark" size={16} color="#ffffff" />}
+                                {formEdicion.animal.arete_faltante && <Ionicons name="checkmark" size={16} color={COLORS.blancoPuro} />}
                             </View>
                             <Text style={styles.toggleTexto}>Arete faltante</Text>
                         </TouchableOpacity>
                     </View>
 
                     <TouchableOpacity style={[styles.botonPrimario, guardando && styles.botonDeshabilitado]} onPress={guardarEdicion} disabled={guardando}>
-                        {guardando ? <ActivityIndicator color="#ffffff" /> : (
+                        {guardando ? <ActivityIndicator color={COLORS.blancoPuro} /> : (
                             <>
-                                <Ionicons name="save" size={18} color="#ffffff" />
+                                <Ionicons name="save" size={18} color={COLORS.blancoPuro} />
                                 <Text style={styles.textoBotonPrimario}>Guardar cambios</Text>
                             </>
                         )}
@@ -564,73 +566,72 @@ export default function MisLotes({ onVolver }) {
         </ScrollView>
     );
 }
-
 const styles = StyleSheet.create({
-    contenedor: { flex: 1, backgroundColor: '#ffffff', paddingHorizontal: 16, paddingTop: 15 },
+    contenedor: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 16, paddingTop: 15 },
     contenido: { paddingBottom: 40 },
     botonRegresarLink: { marginVertical: 10 },
-    textoRegresarLink: { color: '#002855', fontWeight: 'bold', fontSize: 14 },
+    textoRegresarLink: { color: COLORS.azulMarino, fontWeight: FONTS.bold, fontSize: 14 },
     encabezadoFila: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-    titulo: { fontSize: 22, fontWeight: 'bold', color: '#002855' },
+    titulo: { fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold, color: COLORS.azulMarino },
     subtitulo: { fontSize: 13, color: '#64748b', marginTop: 4 },
-    botonIcono: { width: 40, height: 40, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff' },
-    panelFiltros: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, padding: 14, marginBottom: 14, backgroundColor: '#ffffff' },
-    filtroTitulo: { fontSize: 15, fontWeight: 'bold', color: '#0f172a', marginBottom: 10 },
-    dropdownBoton: { minHeight: 46, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f8fafc' },
-    dropdownTexto: { color: '#0f172a', fontSize: 14, fontWeight: 'bold' },
-    dropdownLista: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, marginTop: 8, overflow: 'hidden', backgroundColor: '#ffffff' },
+    botonIcono: { width: 40, height: 40, borderRadius: SIZES.radioBoton, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.blancoPuro },
+    panelFiltros: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioTarjeta, padding: 14, marginBottom: 14, backgroundColor: COLORS.blancoPuro },
+    filtroTitulo: { fontSize: 15, fontWeight: FONTS.bold, color: '#0f172a', marginBottom: 10 },
+    dropdownBoton: { minHeight: 46, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f8fafc' },
+    dropdownTexto: { color: '#0f172a', fontSize: 14, fontWeight: FONTS.bold },
+    dropdownLista: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioBoton, marginTop: 8, overflow: 'hidden', backgroundColor: COLORS.blancoPuro },
     dropdownItem: { minHeight: 42, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
     dropdownItemTexto: { color: '#475569', fontSize: 14, fontWeight: '600' },
-    dropdownItemTextoActivo: { color: '#002855', fontWeight: 'bold' },
-    inputFecha: { marginTop: 10, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: '#0f172a' },
+    dropdownItemTextoActivo: { color: COLORS.azulMarino, fontWeight: FONTS.bold },
+    inputFecha: { marginTop: 10, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 12, paddingVertical: 10, color: '#0f172a' },
     inputFechaBoton: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     fechaBotonTexto: { color: '#0f172a', fontSize: 14, fontWeight: '600' },
     fechaPlaceholder: { color: '#94a3b8' },
     botonLimpiar: { marginTop: 12, alignSelf: 'flex-start' },
-    textoLimpiar: { color: '#002855', fontWeight: 'bold', fontSize: 13 },
+    textoLimpiar: { color: COLORS.azulMarino, fontWeight: FONTS.bold, fontSize: 13 },
     estadoCentrado: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
-    estadoVacio: { alignItems: 'center', justifyContent: 'center', paddingVertical: 36, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, backgroundColor: '#f8fafc' },
-    estadoTitulo: { fontSize: 15, fontWeight: 'bold', color: '#334155', marginTop: 10 },
+    estadoVacio: { alignItems: 'center', justifyContent: 'center', paddingVertical: 36, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioTarjeta, backgroundColor: '#f8fafc' },
+    estadoTitulo: { fontSize: 15, fontWeight: FONTS.bold, color: '#334155', marginTop: 10 },
     estadoTexto: { fontSize: 13, color: '#64748b', marginTop: 6, textAlign: 'center' },
-    tabla: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, overflow: 'hidden', backgroundColor: '#ffffff' },
+    tabla: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, overflow: 'hidden', backgroundColor: COLORS.blancoPuro },
     tablaFila: { minHeight: 48, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#f1f5f9', paddingHorizontal: 8 },
     tablaHeader: { backgroundColor: '#f8fafc' },
-    th: { color: '#475569', fontSize: 11, fontWeight: 'bold' },
+    th: { color: '#475569', fontSize: 11, fontWeight: FONTS.bold },
     td: { color: '#0f172a', fontSize: 12, fontWeight: '600' },
     colId: { flex: 1.2, marginRight: 6 },
     colFecha: { flex: 1, marginRight: 6 },
     colEstado: { flex: 0.9 },
-    modalPantalla: { flex: 1, backgroundColor: '#ffffff', paddingHorizontal: 20, paddingTop: 18 },
+    modalPantalla: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 18 },
     modalContenido: { paddingBottom: 36 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-    modalTitulo: { color: '#002855', fontSize: 22, fontWeight: 'bold' },
+    modalTitulo: { color: COLORS.azulMarino, fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold },
     modalSubtitulo: { color: '#64748b', fontSize: 13, marginTop: 3 },
-    detalleCard: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, padding: 14, marginBottom: 14, backgroundColor: '#ffffff' },
-    recomendacionCard: { borderWidth: 1, borderColor: '#bfdbfe', borderRadius: 12, padding: 14, marginBottom: 14, backgroundColor: '#eff6ff' },
+    detalleCard: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioTarjeta, padding: 14, marginBottom: 14, backgroundColor: COLORS.blancoPuro },
+    recomendacionCard: { borderWidth: 1, borderColor: '#bfdbfe', borderRadius: SIZES.radioTarjeta, padding: 14, marginBottom: 14, backgroundColor: '#eff6ff' },
     detalleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-    detalleTitulo: { color: '#0f172a', fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
-    badgeEstado: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center' },
-    badgeTexto: { fontSize: 11, fontWeight: 'bold' },
+    detalleTitulo: { color: '#0f172a', fontSize: SIZES.tituloSeccion, fontWeight: FONTS.bold, marginBottom: 8 },
+    badgeEstado: { borderRadius: SIZES.radioBoton, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center' },
+    badgeTexto: { fontSize: 11, fontWeight: FONTS.bold },
     detalle: { fontSize: 14, color: '#475569', lineHeight: 22 },
     recomendacion: { fontSize: 13, color: '#1e3a8a', lineHeight: 20 },
-    bold: { fontWeight: 'bold', color: '#1e293b' },
-    botonPrimario: { backgroundColor: '#002855', borderRadius: 9, minHeight: 50, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginBottom: 10 },
-    textoBotonPrimario: { color: '#ffffff', fontSize: 15, fontWeight: 'bold' },
+    bold: { fontWeight: FONTS.bold, color: '#1e293b' },
+    botonPrimario: { backgroundColor: COLORS.azulMarino, borderRadius: 9, minHeight: 50, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginBottom: 10 },
+    textoBotonPrimario: { color: COLORS.blancoPuro, fontSize: 15, fontWeight: FONTS.bold },
     botonEliminar: { borderWidth: 1, borderColor: '#fecaca', backgroundColor: '#fff1f2', borderRadius: 9, minHeight: 50, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
-    textoBotonEliminar: { color: '#D32F2F', fontSize: 15, fontWeight: 'bold' },
+    textoBotonEliminar: { color: COLORS.rojoIntenso, fontSize: 15, fontWeight: FONTS.bold },
     botonDeshabilitado: { backgroundColor: '#94a3b8' },
     campo: { marginBottom: 12 },
-    label: { color: '#64748b', fontSize: 12, fontWeight: 'bold', marginBottom: 6 },
-    input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: '#0f172a', fontSize: 14 },
+    label: { color: '#64748b', fontSize: 12, fontWeight: FONTS.bold, marginBottom: 6 },
+    input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 12, paddingVertical: 10, color: '#0f172a', fontSize: 14 },
     opcionesFila: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    chipOpcion: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#ffffff' },
-    chipOpcionActivo: { borderColor: '#002855', backgroundColor: '#002855' },
-    chipOpcionTexto: { color: '#475569', fontSize: 12, fontWeight: 'bold' },
-    chipOpcionTextoActivo: { color: '#ffffff' },
-    especieBloqueada: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', gap: 8 },
-    especieTexto: { color: '#334155', fontSize: 14, fontWeight: 'bold' },
+    chipOpcion: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: COLORS.blancoPuro },
+    chipOpcionActivo: { borderColor: COLORS.azulMarino, backgroundColor: COLORS.azulMarino },
+    chipOpcionTexto: { color: '#475569', fontSize: 12, fontWeight: FONTS.bold },
+    chipOpcionTextoActivo: { color: COLORS.blancoPuro },
+    especieBloqueada: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 12, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    especieTexto: { color: '#334155', fontSize: 14, fontWeight: FONTS.bold },
     toggleFila: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
-    checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 1, borderColor: '#94a3b8', alignItems: 'center', justifyContent: 'center', marginRight: 10, backgroundColor: '#ffffff' },
-    checkboxActivo: { backgroundColor: '#002855', borderColor: '#002855' },
+    checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 1, borderColor: '#94a3b8', alignItems: 'center', justifyContent: 'center', marginRight: 10, backgroundColor: COLORS.blancoPuro },
+    checkboxActivo: { backgroundColor: COLORS.azulMarino, borderColor: COLORS.azulMarino },
     toggleTexto: { color: '#334155', fontSize: 14, fontWeight: '600' }
 });

@@ -14,11 +14,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Camera, CameraView } from 'expo-camera';
 import CalendarioModal from './CalendarioModal';
 import { AuthContext } from './AuthContext';
+import { COLORS, SIZES, FONTS } from './src/theme/theme';
+
 
 const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
 
 const TIPOS_LOTE = [
-    { id: 'res', label: 'Res', especie: 'BOVINO', icono: 'nutrition', color: '#D32F2F', fondo: '#fff1f2' },
+    { id: 'res', label: 'Res', especie: 'BOVINO', icono: 'nutrition', color: COLORS.rojoIntenso, fondo: '#fff1f2' },
     { id: 'cerdo', label: 'Cerdo', especie: 'PORCINO', icono: 'restaurant', color: '#db2777', fondo: '#fdf2f8' }
 ];
 const SEXOS = ['MACHO', 'HEMBRA'];
@@ -617,7 +619,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                     icono="document-text"
                 >
                     <TouchableOpacity style={styles.botonEscanear} onPress={escanearGuíaTransito}>
-                        <Ionicons name="scan" size={18} color="#ffffff" />
+                        <Ionicons name="scan" size={18} color={COLORS.blancoPuro} />
                         <Text style={styles.textoBotonEscanear}>Escanear guía de tránsito</Text>
                     </TouchableOpacity>
                     <InputCampo
@@ -879,7 +881,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                         onPress={() => actualizarCampo('animal', 'arete_faltante', !formData.animal.arete_faltante)}
                     >
                         <View style={[styles.checkbox, formData.animal.arete_faltante && styles.checkboxActivo]}>
-                            {formData.animal.arete_faltante && <Ionicons name="checkmark" size={16} color="#ffffff" />}
+                            {formData.animal.arete_faltante && <Ionicons name="checkmark" size={16} color={COLORS.blancoPuro} />}
                         </View>
                         <Text style={styles.toggleTexto}>Arete faltante</Text>
                     </TouchableOpacity>
@@ -951,7 +953,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                     disabled={loading}
                 >
                     {loading ? (
-                        <ActivityIndicator color="#ffffff" />
+                        <ActivityIndicator color={COLORS.blancoPuro} />
                     ) : (
                         <Text style={styles.textoBotonPrincipal}>Guardar lote y animal</Text>
                     )}
@@ -1000,304 +1002,56 @@ export default function RegistrarLoteAnimal({ onVolver }) {
 }
 
 const styles = StyleSheet.create({
-    pantalla: {
-        flex: 1,
-        backgroundColor: '#ffffff'
-    },
-    pantallaSelector: {
-        flex: 1,
-        backgroundColor: '#ffffff',
-        paddingHorizontal: 20,
-        paddingTop: 20
-    },
-    selectorGrid: {
-        flexDirection: 'row',
-        gap: 12,
-        marginTop: 16
-    },
-    tarjetaTipo: {
-        flex: 1,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-        borderRadius: 12,
-        padding: 16,
-        backgroundColor: '#ffffff'
-    },
-    iconoTipo: {
-        width: 44,
-        height: 44,
-        borderRadius: 8,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 12
-    },
-    tipoTitulo: {
-        fontSize: 15,
-        fontWeight: 'bold',
-        color: '#0f172a'
-    },
-    tipoSubtitulo: {
-        fontSize: 12,
-        color: '#64748b',
-        marginTop: 4
-    },
-    contenedor: {
-        flex: 1,
-        backgroundColor: '#ffffff',
-        paddingHorizontal: 20,
-        paddingTop: 15
-    },
-    contenido: {
-        paddingBottom: 40
-    },
-    botonRegresarLink: {
-        marginVertical: 10
-    },
-    textoRegresarLink: {
-        color: '#002855',
-        fontWeight: 'bold',
-        fontSize: 14
-    },
-    titulo: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        color: '#002855',
-        marginTop: 10
-    },
-    subtitulo: {
-        fontSize: 13,
-        color: '#64748b',
-        marginTop: 4,
-        marginBottom: 18,
-        lineHeight: 19
-    },
-    seccion: {
-        backgroundColor: '#ffffff',
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-        borderRadius: 12,
-        padding: 14,
-        marginBottom: 14
-    },
-    seccionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12
-    },
-    iconoSeccion: {
-        width: 36,
-        height: 36,
-        borderRadius: 8,
-        backgroundColor: '#f1f5f9',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 10
-    },
-    seccionTexto: {
-        flex: 1
-    },
-    seccionTitulo: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#0f172a'
-    },
-    seccionSubtitulo: {
-        fontSize: 12,
-        color: '#94a3b8',
-        marginTop: 2
-    },
-    campo: {
-        marginBottom: 12
-    },
-    label: {
-        color: '#334155',
-        fontSize: 13,
-        fontWeight: 'bold',
-        marginBottom: 6
-    },
-    input: {
-        backgroundColor: '#f8fafc',
-        borderWidth: 1,
-        borderColor: '#cbd5e1',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 11,
-        color: '#0f172a',
-        fontSize: 15
-    },
-    inputError: {
-        borderColor: '#D32F2F',
-        backgroundColor: '#fff1f2'
-    },
-    inputFechaBoton: {
-        minHeight: 46,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between'
-    },
-    fechaBotonTexto: {
-        color: '#0f172a',
-        fontSize: 15
-    },
-    fechaPlaceholder: {
-        color: '#94a3b8'
-    },
-    botonEscanear: {
-        backgroundColor: '#002855',
-        borderRadius: 8,
-        paddingVertical: 11,
-        paddingHorizontal: 12,
-        marginBottom: 14,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8
-    },
-    textoBotonEscanear: {
-        color: '#ffffff',
-        fontSize: 14,
-        fontWeight: 'bold'
-    },
-    escanerPantalla: {
-        flex: 1,
-        backgroundColor: '#ffffff',
-        paddingHorizontal: 20,
-        paddingTop: 24
-    },
-    escanerHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 18
-    },
-    escanerTitulo: {
-        color: '#002855',
-        fontSize: 20,
-        fontWeight: 'bold'
-    },
-    escanerCerrar: {
-        width: 40,
-        height: 40,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-        alignItems: 'center',
-        justifyContent: 'center'
-    },
-    escanerMarco: {
-        height: 320,
-        borderRadius: 12,
-        overflow: 'hidden',
-        backgroundColor: '#0f172a'
-    },
-    escanerCamara: {
-        flex: 1
-    },
-    escanerAyuda: {
-        color: '#475569',
-        fontSize: 13,
-        lineHeight: 19,
-        textAlign: 'center',
-        marginTop: 18
-    },
-    botonReintentarScan: {
-        backgroundColor: '#002855',
-        borderRadius: 8,
-        paddingVertical: 12,
-        alignItems: 'center',
-        marginTop: 16
-    },
-    textoReintentarScan: {
-        color: '#ffffff',
-        fontWeight: 'bold'
-    },
-    especieBloqueada: {
-        backgroundColor: '#f1f5f9',
-        borderWidth: 1,
-        borderColor: '#cbd5e1',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 11,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8
-    },
-    especieTexto: {
-        color: '#334155',
-        fontSize: 14,
-        fontWeight: 'bold'
-    },
-    errorText: {
-        color: '#D32F2F',
-        fontSize: 12,
-        marginTop: 4
-    },
-    opciones: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8
-    },
-    opcion: {
-        borderWidth: 1,
-        borderColor: '#cbd5e1',
-        backgroundColor: '#ffffff',
-        borderRadius: 8,
-        paddingVertical: 8,
-        paddingHorizontal: 10
-    },
-    opcionActiva: {
-        borderColor: '#002855',
-        backgroundColor: '#002855'
-    },
-    opcionTexto: {
-        color: '#475569',
-        fontSize: 12,
-        fontWeight: 'bold'
-    },
-    opcionTextoActiva: {
-        color: '#ffffff'
-    },
-    toggleFila: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 4
-    },
-    checkbox: {
-        width: 24,
-        height: 24,
-        borderRadius: 6,
-        borderWidth: 1,
-        borderColor: '#94a3b8',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 10,
-        backgroundColor: '#ffffff'
-    },
-    checkboxActivo: {
-        backgroundColor: '#002855',
-        borderColor: '#002855'
-    },
-    toggleTexto: {
-        color: '#334155',
-        fontSize: 14,
-        fontWeight: '600'
-    },
-    botonPrincipal: {
-        backgroundColor: '#D32F2F',
-        paddingVertical: 16,
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: 54,
-        marginTop: 4,
-        marginBottom: 20
-    },
-    botonDeshabilitado: {
-        backgroundColor: '#94a3b8'
-    },
-    textoBotonPrincipal: {
-        color: '#ffffff',
-        fontSize: 16,
-        fontWeight: 'bold'
-    }
+    pantalla: { flex: 1, backgroundColor: COLORS.blancoPuro },
+    pantallaSelector: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 20 },
+    selectorGrid: { flexDirection: 'row', gap: 12, marginTop: 16 },
+    tarjetaTipo: { flex: 1, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioTarjeta, padding: 16, backgroundColor: COLORS.blancoPuro },
+    iconoTipo: { width: 44, height: 44, borderRadius: SIZES.radioBoton, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+    tipoTitulo: { fontSize: 15, fontWeight: FONTS.bold, color: '#0f172a' },
+    tipoSubtitulo: { fontSize: 12, color: '#64748b', marginTop: 4 },
+    contenedor: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 15 },
+    contenido: { paddingBottom: 40 },
+    botonRegresarLink: { marginVertical: 10 },
+    textoRegresarLink: { color: COLORS.azulMarino, fontWeight: FONTS.bold, fontSize: 14 },
+    titulo: { fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold, color: COLORS.azulMarino, marginTop: 10 },
+    subtitulo: { fontSize: 13, color: '#64748b', marginTop: 4, marginBottom: 18, lineHeight: 19 },
+    seccion: { backgroundColor: COLORS.blancoPuro, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioTarjeta, padding: 14, marginBottom: 14 },
+    seccionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    iconoSeccion: { width: 36, height: 36, borderRadius: SIZES.radioBoton, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+    seccionTexto: { flex: 1 },
+    seccionTitulo: { fontSize: SIZES.tituloSeccion, fontWeight: FONTS.bold, color: '#0f172a' },
+    seccionSubtitulo: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
+    campo: { marginBottom: 12 },
+    label: { color: '#334155', fontSize: 13, fontWeight: FONTS.bold, marginBottom: 6 },
+    input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 12, paddingVertical: 11, color: '#0f172a', fontSize: 15 },
+    inputError: { borderColor: COLORS.rojoIntenso, backgroundColor: '#fff1f2' },
+    inputFechaBoton: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    fechaBotonTexto: { color: '#0f172a', fontSize: 15 },
+    fechaPlaceholder: { color: '#94a3b8' },
+    botonEscanear: { backgroundColor: COLORS.azulMarino, borderRadius: SIZES.radioBoton, paddingVertical: 11, paddingHorizontal: 12, marginBottom: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    textoBotonEscanear: { color: COLORS.blancoPuro, fontSize: 14, fontWeight: FONTS.bold },
+    escanerPantalla: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 24 },
+    escanerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
+    escanerTitulo: { color: COLORS.azulMarino, fontSize: 20, fontWeight: FONTS.bold },
+    escanerCerrar: { width: 40, height: 40, borderRadius: SIZES.radioBoton, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center' },
+    escanerMarco: { height: 320, borderRadius: SIZES.radioTarjeta, overflow: 'hidden', backgroundColor: '#0f172a' },
+    escanerCamara: { flex: 1 },
+    escanerAyuda: { color: '#475569', fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 18 },
+    botonReintentarScan: { backgroundColor: COLORS.azulMarino, borderRadius: SIZES.radioBoton, paddingVertical: 12, alignItems: 'center', marginTop: 16 },
+    textoReintentarScan: { color: COLORS.blancoPuro, fontWeight: FONTS.bold },
+    especieBloqueada: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 12, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    especieTexto: { color: '#334155', fontSize: 14, fontWeight: FONTS.bold },
+    errorText: { color: COLORS.rojoIntenso, fontSize: 12, marginTop: 4 },
+    opciones: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    opcion: { borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: COLORS.blancoPuro, borderRadius: SIZES.radioBoton, paddingVertical: 8, paddingHorizontal: 10 },
+    opcionActiva: { borderColor: COLORS.azulMarino, backgroundColor: COLORS.azulMarino },
+    opcionTexto: { color: '#475569', fontSize: 12, fontWeight: FONTS.bold },
+    opcionTextoActiva: { color: COLORS.blancoPuro },
+    toggleFila: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+    checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 1, borderColor: '#94a3b8', alignItems: 'center', justifyContent: 'center', marginRight: 10, backgroundColor: COLORS.blancoPuro },
+    checkboxActivo: { backgroundColor: COLORS.azulMarino, borderColor: COLORS.azulMarino },
+    toggleTexto: { color: '#334155', fontSize: 14, fontWeight: '600' },
+    botonPrincipal: { backgroundColor: COLORS.rojoIntenso, paddingVertical: 16, borderRadius: 10, alignItems: 'center', justifyContent: 'center', minHeight: 54, marginTop: 4, marginBottom: 20 },
+    botonDeshabilitado: { backgroundColor: '#94a3b8' },
+    textoBotonPrincipal: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, fontWeight: FONTS.bold }
 });

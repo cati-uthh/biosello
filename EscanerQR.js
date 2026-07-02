@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Text, View, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { CameraView, Camera } from "expo-camera";
+import { COLORS, SIZES, FONTS } from './src/theme/theme';
 
 export default function EscanerQR({ navigation }) {
   const [hasPermission, setHasPermission] = useState(null);
@@ -83,78 +84,18 @@ export default function EscanerQR({ navigation }) {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    paddingTop: 40,
-  },
-  instructionText: {
-    fontSize: 16,
-    textAlign: 'center',
-    fontWeight: 'bold',
-    marginBottom: 30,
-  },
-  scannerWrapper: {
-    width: 250,
-    height: 250,
-    overflow: 'hidden',
-    borderRadius: 10,
-    marginBottom: 40,
-    backgroundColor: '#f0f0f0', // Color de fondo por si no hay cámara aún
-  },
-  camera: {
-    flex: 1,
-  },
-  cameraPlaceholder: {
-     flex: 1,
-     backgroundColor: '#E8E8E8',
-  },
-  helpText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  manualButton: {
-    backgroundColor: '#D32F2F', // El rojo de tu botón
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-    width: '80%',
-    alignItems: 'center',
-  },
-  manualButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  // Estilos del Modal
-  modalBackground: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    backgroundColor: '#F3E5F5', // Lila claro
-    padding: 20,
-    borderRadius: 15,
-    width: '80%',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  modalText: {
-    fontSize: 14,
-    marginBottom: 20,
-  },
-  modalActionText: {
-    color: '#003366',
-    fontWeight: 'bold',
-    textAlign: 'right',
-  }
+  container: { flex: 1, backgroundColor: COLORS.blancoPuro, alignItems: 'center', paddingTop: 40 },
+  instructionText: { fontSize: SIZES.textoBase, textAlign: 'center', fontWeight: FONTS.bold, marginBottom: 30 },
+  scannerWrapper: { width: 250, height: 250, overflow: 'hidden', borderRadius: SIZES.radioTarjeta, marginBottom: 40, backgroundColor: '#f0f0f0' },
+  camera: { flex: 1 },
+  cameraPlaceholder: { flex: 1, backgroundColor: '#E8E8E8' },
+  helpText: { fontSize: 14, fontWeight: FONTS.bold, marginBottom: 10 },
+  manualButton: { backgroundColor: COLORS.rojoIntenso, paddingVertical: 12, paddingHorizontal: 30, borderRadius: SIZES.radioBoton, width: '80%', alignItems: 'center' },
+  manualButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: SIZES.textoBase },
+  modalBackground: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalContainer: { backgroundColor: '#F3E5F5', padding: 20, borderRadius: SIZES.radioTarjeta, width: '80%' },
+  modalTitle: { fontSize: SIZES.tituloSeccion, fontWeight: FONTS.bold, marginBottom: 10, color: COLORS.azulMarino },
+  modalText: { fontSize: 14, marginBottom: 20 },
+  modalActionText: { color: COLORS.azulMarino, fontWeight: FONTS.bold, textAlign: 'right' }
 });
