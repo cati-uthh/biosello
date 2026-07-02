@@ -15,8 +15,8 @@ import { COLORS, SIZES, FONTS } from './src/theme/theme';
 
 const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
 
-export default function CuentaScreen() {
-  const { usuario, setUsuario, setSesionActiva } = useContext(AuthContext);
+export default function CuentaScreen({ navigation }) {
+  const { sesionActiva, usuario, setUsuario, setSesionActiva } = useContext(AuthContext);
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [perfil, setPerfil] = useState(null);
@@ -136,6 +136,34 @@ export default function CuentaScreen() {
       <View style={styles.cargando}>
         <ActivityIndicator color="#002855" />
         <Text style={styles.estadoTexto}>Cargando cuenta...</Text>
+      </View>
+    );
+  }
+
+  if (!sesionActiva || !idUsuario) {
+    return (
+      <View style={styles.sesionVacia}>
+        <View style={styles.sesionIcono}>
+          <Ionicons name="person-circle-outline" size={64} color="#002855" />
+        </View>
+        <Text style={styles.sesionTitulo}>Tu cuenta aun no esta activa</Text>
+        <Text style={styles.sesionTexto}>
+          Para ver o editar tu perfil, registra tu negocio o inicia sesion con una cuenta existente.
+        </Text>
+
+        <TouchableOpacity style={styles.botonRegistro} onPress={() => navigation.navigate('actRegistroNegocio')}>
+          <Ionicons name="business-outline" size={18} color="#ffffff" />
+          <Text style={styles.textoBotonRegistro}>Registrar mi negocio</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.botonLogin} onPress={() => navigation.navigate('actInicioSesion')}>
+          <Ionicons name="log-in-outline" size={18} color="#002855" />
+          <Text style={styles.textoBotonLogin}>Iniciar sesion</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.botonInicio} onPress={() => navigation.navigate('Inicio')}>
+          <Text style={styles.textoBotonInicio}>Volver a inicio</Text>
+        </TouchableOpacity>
       </View>
     );
   }
