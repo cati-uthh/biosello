@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { COLORS, SIZES, FONTS } from './src/theme/theme';
+
 
 export default function IngresoManual() {
   const [codigo, setCodigo] = useState('');
@@ -46,55 +48,11 @@ export default function IngresoManual() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    paddingTop: 50, // Ajusta este valor para bajar o subir todo el bloque
-    paddingHorizontal: 30, // Márgenes laterales
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  input: {
-    width: '100%',
-    height: 50,
-    borderColor: '#999', // Borde gris claro como en tu diseño
-    borderWidth: 1,
-    borderRadius: 5, // Bordes ligeramente redondeados
-    paddingHorizontal: 15,
-    fontSize: 16,
-    marginBottom: 20,
-    color: '#000',
-    backgroundColor: '#FFF',
-  },
-  primaryButton: {
-    backgroundColor: '#D32F2F', // El rojo institucional
-    paddingVertical: 12,
-    borderRadius: 8,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 40, // Separación entre el botón y la imagen de abajo
-  },
-  buttonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 18,
-  },
-  helpImage: {
-    width: 250,
-    height: 200,
-    marginBottom: 15,
-  },
-  helpText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    fontWeight: '600',
-    lineHeight: 20, // Mejora el espaciado entre las dos líneas de texto
-  },
+  container: { flex: 1, backgroundColor: COLORS.blancoPuro, alignItems: 'center', paddingTop: 50, paddingHorizontal: 30 },
+  title: { fontSize: SIZES.tituloSeccion, fontWeight: FONTS.bold, color: '#000', textAlign: 'center', marginBottom: 20 },
+  input: { width: '100%', height: 50, borderColor: '#999', borderWidth: 1, borderRadius: SIZES.radioInput, paddingHorizontal: 15, fontSize: SIZES.textoBase, marginBottom: 20, color: '#000', backgroundColor: COLORS.blancoPuro },
+  primaryButton: { backgroundColor: COLORS.rojoIntenso, paddingVertical: 12, borderRadius: SIZES.radioBoton, width: '100%', alignItems: 'center', marginBottom: 40 },
+  buttonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: SIZES.textoBase },
+  helpImage: { width: 250, height: 200, marginBottom: 15 },
+  helpText: { fontSize: 14, color: '#666', textAlign: 'center', fontWeight: '600', lineHeight: 20 },
 });

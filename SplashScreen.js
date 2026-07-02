@@ -10,6 +10,8 @@ import {
     Dimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { COLORS, SIZES, FONTS } from './src/theme/theme';
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -137,55 +139,13 @@ export default function SplashScreen({ onFinish }) {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#010810', // Fondo base casi negro para que los degradados resalten
-    },
-    waveBackground: {
-        position: 'absolute',
-        top: 0, bottom: 0, left: 0, right: 0,
-        overflow: 'hidden',
-        zIndex: 0,
-    },
-    wave: {
-        position: 'absolute',
-        width: width * 2, // Extra grande para que el degradado sea larguísimo
-        height: height * 1.5, 
-        opacity: 0.7, // Se mezclan los tonos oscuros de forma elegante
-    },
-    content: {
-        flex: 1,
-        width: '100%',
-        alignItems: 'center',
-        zIndex: 1,
-    },
-    logoContainer: {
-        flex: 1, // Toma todo el espacio disponible en el centro
-        justifyContent: 'center', // Centra el logo verticalmente
-        width: '75%', 
-        alignItems: 'center',
-    },
-    logo: {
-        width: '100%',
-        height: 250, 
-    },
-    loadingContainer: {
-        alignItems: 'center',
-        marginBottom: 60, // Margen exacto desde la base del teléfono
-    },
-    simpleSpinner: {
-        width: 45,
-        height: 45,
-        borderRadius: 25,
-        borderWidth: 4,
-        borderColor: 'rgba(255, 255, 255, 0.05)', // Más sutil para combinar con el fondo oscuro
-        borderTopColor: '#FFFFFF',
-        marginBottom: 20,
-    },
-    loadingText: {
-        color: '#FFFFFF',
-        fontSize: 18,
-        fontWeight: '500',
-        letterSpacing: 1.5,
-    }
+    container: { flex: 1, backgroundColor: '#010810' },
+    waveBackground: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, overflow: 'hidden', zIndex: 0 },
+    wave: { position: 'absolute', width: width * 2, height: height * 1.5, opacity: 0.7 },
+    content: { flex: 1, width: '100%', alignItems: 'center', zIndex: 1 },
+    logoContainer: { flex: 1, justifyContent: 'center', width: '75%', alignItems: 'center' },
+    logo: { width: '100%', height: 250 },
+    loadingContainer: { alignItems: 'center', marginBottom: 60 },
+    simpleSpinner: { width: 45, height: 45, borderRadius: 25, borderWidth: 4, borderColor: 'rgba(255, 255, 255, 0.05)', borderTopColor: COLORS.blancoPuro, marginBottom: 20 },
+    loadingText: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, fontWeight: FONTS.bold, letterSpacing: 1.5 }
 });

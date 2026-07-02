@@ -7,6 +7,8 @@ import {
   View
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { COLORS, SIZES, FONTS } from './src/theme/theme';
+
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -106,78 +108,18 @@ export default function CalendarioModal({ visible, value, title = 'Seleccionar f
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'center',
-    padding: 20
-  },
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12
-  },
-  title: {
-    color: '#002855',
-    fontSize: 18,
-    fontWeight: 'bold'
-  },
-  iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  monthRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12
-  },
-  monthText: {
-    color: '#0f172a',
-    fontSize: 16,
-    fontWeight: 'bold'
-  },
-  weekRow: {
-    flexDirection: 'row',
-    marginBottom: 6
-  },
-  weekText: {
-    width: '14.285%',
-    color: '#64748b',
-    fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center'
-  },
-  daysGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap'
-  },
-  dayCell: {
-    width: '14.285%',
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8
-  },
-  dayCellActive: {
-    backgroundColor: '#002855'
-  },
-  dayText: {
-    color: '#0f172a',
-    fontWeight: '600'
-  },
-  dayTextActive: {
-    color: '#ffffff'
-  }
+  overlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.45)', justifyContent: 'center', padding: 20 },
+  card: { backgroundColor: COLORS.blancoPuro, borderRadius: SIZES.radioTarjeta, padding: 16 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  title: { color: COLORS.azulMarino, fontSize: SIZES.tituloSeccion, fontWeight: FONTS.bold },
+  iconButton: { width: 36, height: 36, borderRadius: SIZES.radioBoton, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center' },
+  monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  monthText: { color: '#0f172a', fontSize: SIZES.textoBase, fontWeight: FONTS.bold },
+  weekRow: { flexDirection: 'row', marginBottom: 6 },
+  weekText: { width: '14.285%', color: '#64748b', fontSize: 12, fontWeight: FONTS.bold, textAlign: 'center' },
+  daysGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  dayCell: { width: '14.285%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: SIZES.radioBoton },
+  dayCellActive: { backgroundColor: COLORS.azulMarino },
+  dayText: { color: '#0f172a', fontWeight: '600' },
+  dayTextActive: { color: COLORS.blancoPuro }
 });

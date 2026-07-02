@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from './AuthContext';
+import { COLORS, SIZES, FONTS } from './src/theme/theme';
 
 export default function ActInicioSesion({ navigation }) {
     const { setSesionActiva, setUsuario } = useContext(AuthContext);
@@ -90,7 +91,7 @@ export default function ActInicioSesion({ navigation }) {
                 </View>
 
                 <TouchableOpacity style={styles.mainButton} onPress={manejarLogin} disabled={loading}>
-                    {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.mainButtonText}>Entrar</Text>}
+                    {loading ? <ActivityIndicator color={COLORS.blancoPuro} /> : <Text style={styles.mainButtonText}>Entrar</Text>}
                 </TouchableOpacity>
 
                 <View style={styles.forgotContainer}>
@@ -105,18 +106,18 @@ export default function ActInicioSesion({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#041E3A', justifyContent: 'center' },
+    container: { flex: 1, backgroundColor: COLORS.azulMarino, justifyContent: 'center' },
     logoContainer: { alignItems: 'center', marginBottom: 35 },
     logo: { width: 280, height: 100, marginBottom: 25 },
     formContainer: { paddingHorizontal: 40 },
-    label: { color: '#FFFFFF', fontSize: 16, marginBottom: 5, fontWeight: 'bold' },
-    input: { backgroundColor: '#FFFFFF', borderRadius: 4, padding: 12, marginBottom: 20, color: '#000000', fontSize: 16, height: 48 },
-    passwordContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 4, marginBottom: 20, height: 48 },
-    passwordInput: { flex: 1, padding: 12, color: '#000000', fontSize: 16, height: '100%' },
+    label: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, marginBottom: 5, fontWeight: FONTS.bold },
+    input: { backgroundColor: COLORS.blancoPuro, borderRadius: SIZES.radioInput, padding: 12, marginBottom: 20, color: COLORS.textoOscuro, fontSize: SIZES.textoBase, height: 48 },
+    passwordContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.blancoPuro, borderRadius: SIZES.radioInput, marginBottom: 20, height: 48 },
+    passwordInput: { flex: 1, padding: 12, color: COLORS.textoOscuro, fontSize: SIZES.textoBase, height: '100%' },
     eyeIcon: { padding: 10 },
-    mainButton: { backgroundColor: '#D32F2F', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
-    mainButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
+    mainButton: { backgroundColor: COLORS.rojoIntenso, padding: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginTop: 10 },
+    mainButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: SIZES.textoBase },
     forgotContainer: { marginTop: 30, alignItems: 'center' },
-    forgotText: { color: '#FFFFFF', fontSize: 15, lineHeight: 22, textAlign: 'center' },
-    forgotLink: { fontWeight: 'bold', fontStyle: 'italic', textDecorationLine: 'underline' }
+    forgotText: { color: COLORS.blancoPuro, fontSize: 15, lineHeight: 22, textAlign: 'center' },
+    forgotLink: { fontWeight: FONTS.bold, fontStyle: 'italic', textDecorationLine: 'underline' }
 });
