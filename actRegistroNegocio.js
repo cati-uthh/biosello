@@ -12,6 +12,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
+import { API_BASE_URL } from './src/utils/auth';
 
 
 const passwordRules = [
@@ -105,7 +106,7 @@ export default function ActRegistroNegocio({ navigation }) {
 
         setLoading(true);
         try {
-            const response = await fetch('https://biosello-backend.vercel.app/api/registro-negocio', {
+            const response = await fetch(`${API_BASE_URL}/registro-negocio`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -15,9 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import CalendarioModal from './CalendarioModal';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
-
-
-const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
+import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
 
 const FILTROS_RAPIDOS = [
     { label: 'Todos los lotes', value: 'todos' },
@@ -139,7 +137,9 @@ export default function MisLotes({ onVolver }) {
             if (filtroActivo.tipo === 'fecha' && fechaIngreso.trim()) params.append('fecha_ingreso', fechaIngreso.trim());
 
             const query = params.toString();
-            const response = await fetch(`${API_BASE_URL}/lotes${query ? `?${query}` : ''}`);
+            const response = await fetch(`${API_BASE_URL}/lotes${query ? `?${query}` : ''}`, {
+                headers: getAuthHeaders(usuario)
+            });
             const result = await response.json();
 
             if (!response.ok || result.success === false) {
@@ -158,7 +158,7 @@ export default function MisLotes({ onVolver }) {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [idsSesion, filtroActivo, fechaIngreso]);
+    }, [fechaIngreso, filtroActivo, idsSesion, usuario]);
 
     useEffect(() => {
         cargarLotes();
@@ -214,7 +214,7 @@ export default function MisLotes({ onVolver }) {
         try {
             const response = await fetch(`${API_BASE_URL}/lotes`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders(usuario) },
                 body: JSON.stringify({
                     id_lote: lote.id_lote,
                     estado,
@@ -245,7 +245,7 @@ export default function MisLotes({ onVolver }) {
         try {
             const response = await fetch(`${API_BASE_URL}/lotes`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders(usuario) },
                 body: JSON.stringify({
                     id_lote: loteSeleccionado.id_lote,
                     id_usuario: idsSesion.idEmpleado || null,
@@ -284,7 +284,10 @@ export default function MisLotes({ onVolver }) {
         try {
             const params = new URLSearchParams({ id_lote: String(lote.id_lote) });
             if (idsSesion.idEmpleado) params.append('id_usuario', String(idsSesion.idEmpleado));
-            const response = await fetch(`${API_BASE_URL}/lotes?${params.toString()}`, { method: 'DELETE' });
+            const response = await fetch(`${API_BASE_URL}/lotes?${params.toString()}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders(usuario)
+            });
             const result = await response.json();
 
             if (!response.ok || result.success === false) {

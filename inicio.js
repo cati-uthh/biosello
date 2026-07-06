@@ -17,8 +17,7 @@ import RegistrarLoteAnimal from './RegistrarLoteAnimal';
 import MisLotes from './MisLotes';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
-
-const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
+import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
 
 const diasParaVencer = (fecha) => {
     if (!fecha) return null;
@@ -61,7 +60,9 @@ export default function InicioScreen({ navigation }) {
                 if (idEmpleado) params.append('id_empleado', String(idEmpleado));
 
                 const query = params.toString();
-                const response = await fetch(`${API_BASE_URL}/lotes${query ? `?${query}` : ''}`);
+                const response = await fetch(`${API_BASE_URL}/lotes${query ? `?${query}` : ''}`, {
+                    headers: getAuthHeaders(usuario)
+                });
                 const result = await response.json();
                 if (response.ok && result.success !== false) setLotes(result.data || []);
             } catch (error) {
@@ -103,6 +104,9 @@ export default function InicioScreen({ navigation }) {
                 </Animated.View>
 
                 <Animated.View style={{ opacity: fadeBotones, width: '100%', alignItems: 'center' }}>
+                    <TouchableOpacity style={styles.botonUsuario} onPress={() => navigation.navigate('actRegistroUsuario')}>
+                        <Text style={styles.textoBotonUsuario}>Crear cuenta personal</Text>
+                    </TouchableOpacity>
                     <TouchableOpacity style={styles.botonRegistrar} onPress={() => navigation.navigate('actRegistroNegocio')}>
                         <Text style={styles.textoBotonRegistrar}>Registrar mi Negocio</Text>
                     </TouchableOpacity>
@@ -208,7 +212,9 @@ const styles = StyleSheet.create({
     tituloInvitacion: { color: COLORS.blancoPuro, fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold, textAlign: 'center', marginBottom: 40 },
     iconoCuadrado: { width: 300, height: 300, borderRadius: 10, marginBottom: 40, backgroundColor: COLORS.blancoPuro, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8 },
     descripcionInvitacion: { color: '#e2e8f0', fontSize: SIZES.textoBase, textAlign: 'center', lineHeight: 24, marginBottom: 40, paddingHorizontal: 10 },
-    botonRegistrar: { backgroundColor: COLORS.rojoIntenso, width: '100%', paddingVertical: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginBottom: 25 },
+    botonUsuario: { backgroundColor: COLORS.rojoIntenso, width: '100%', paddingVertical: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginBottom: 12 },
+    textoBotonUsuario: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, fontWeight: FONTS.bold },
+    botonRegistrar: { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.blancoPuro, width: '100%', paddingVertical: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginBottom: 25 },
     textoBotonRegistrar: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, fontWeight: FONTS.bold },
     textoLogin: { color: COLORS.blancoPuro, fontSize: 15 },
     linkLogin: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, textDecorationLine: 'underline' },

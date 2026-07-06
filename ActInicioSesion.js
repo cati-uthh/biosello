@@ -12,9 +12,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
+import { API_BASE_URL, normalizarUsuarioSesion } from './src/utils/auth';
 
 export default function ActInicioSesion({ navigation }) {
-    const { setSesionActiva, setUsuario } = useContext(AuthContext);
+    const { iniciarSesion } = useContext(AuthContext);
     const [loading, setLoading] = useState(false);
     const [mostrarContrasena, setMostrarContrasena] = useState(false);
     const [credenciales, setCredenciales] = useState({ email: '', contrasena: '' });
@@ -28,7 +29,7 @@ export default function ActInicioSesion({ navigation }) {
         setLoading(true);
 
         try {
-            const response = await fetch('https://biosello-backend.vercel.app/api/login', {
+            const response = await fetch(`${API_BASE_URL}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -37,15 +38,26 @@ export default function ActInicioSesion({ navigation }) {
                 })
             });
 
-            const result = await response.json();
+            const textResult = await response.text();
+            let result = {};
+            try {
+                result = textResult ? JSON.parse(textResult) : {};
+            } catch (error) {
+                result = {};
+            }
 
             if (!response.ok || result.success === false) {
                 Alert.alert('No se pudo iniciar sesión', result.error || 'Revisa tus datos e intenta nuevamente.');
                 return;
             }
 
-            setSesionActiva(true);
-            setUsuario(result.usuario || result.user || result.data || null);
+            const usuarioSesion = normalizarUsuarioSesion(result);
+            if (!usuarioSesion) {
+                Alert.alert('No se pudo iniciar sesión', 'El servidor no devolvio los datos de usuario.');
+                return;
+            }
+
+            iniciarSesion(usuarioSesion);
             navigation.reset({
                 index: 0,
                 routes: [{
@@ -94,6 +106,15 @@ export default function ActInicioSesion({ navigation }) {
                     {loading ? <ActivityIndicator color={COLORS.blancoPuro} /> : <Text style={styles.mainButtonText}>Entrar</Text>}
                 </TouchableOpacity>
 
+                <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('actRegistroUsuario')} disabled={loading}>
+                    <Ionicons name="person-add-outline" size={18} color={COLORS.blancoPuro} />
+                    <Text style={styles.secondaryButtonText}>Crear cuenta personal</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.linkButton} onPress={() => navigation.navigate('actRegistroNegocio')} disabled={loading}>
+                    <Text style={styles.linkButtonText}>Registrar negocio</Text>
+                </TouchableOpacity>
+
                 <View style={styles.forgotContainer}>
                     <Text style={styles.forgotText}>¿Olvidaste la contraseña?</Text>
                     <Text style={styles.forgotText}>
@@ -117,6 +138,10 @@ const styles = StyleSheet.create({
     eyeIcon: { padding: 10 },
     mainButton: { backgroundColor: COLORS.rojoIntenso, padding: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginTop: 10 },
     mainButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: SIZES.textoBase },
+    secondaryButton: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.65)', borderRadius: SIZES.radioBoton, minHeight: 48, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 12 },
+    secondaryButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: 15 },
+    linkButton: { alignItems: 'center', paddingVertical: 12 },
+    linkButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, textDecorationLine: 'underline' },
     forgotContainer: { marginTop: 30, alignItems: 'center' },
     forgotText: { color: COLORS.blancoPuro, fontSize: 15, lineHeight: 22, textAlign: 'center' },
     forgotLink: { fontWeight: FONTS.bold, fontStyle: 'italic', textDecorationLine: 'underline' }

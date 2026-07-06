@@ -11,6 +11,7 @@ import InicioScreen from './inicio';
 import IngresoManual from './IngresoManual';
 import CuentaScreen from './CuentaScreen';
 import ActRegistroNegocio from './actRegistroNegocio';
+import ActRegistroUsuario from './ActRegistroUsuario';
 import ActInicioSesion from './ActInicioSesion';
 import { AuthProvider, AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
@@ -78,42 +79,60 @@ function MainTabs() {
   );
 }
 
-export default function App() {
+function AppNavigator() {
   const [isLoading, setIsLoading] = useState(true);
+  const { sesionCargando } = useContext(AuthContext);
 
-  if (isLoading) {
+  if (isLoading || sesionCargando) {
     return <SplashScreen onFinish={() => setIsLoading(false)} />;
   }
 
   return (
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName="MainTabs">
+        <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
+        <Stack.Screen
+          name="actRegistroNegocio"
+          component={ActRegistroNegocio}
+          options={{
+            headerShown: true,
+            title: 'Registro de Negocio',
+            headerStyle: { backgroundColor: COLORS.azulMarino },
+            headerTintColor: COLORS.blancoPuro,
+            headerBackTitleVisible: false
+          }}
+        />
+        <Stack.Screen
+          name="actInicioSesion"
+          component={ActInicioSesion}
+          options={{
+            headerShown: true,
+            title: 'Iniciar Sesión',
+            headerStyle: { backgroundColor: COLORS.azulMarino },
+            headerTintColor: COLORS.blancoPuro,
+            headerBackTitleVisible: false
+          }}
+        />
+        <Stack.Screen
+          name="actRegistroUsuario"
+          component={ActRegistroUsuario}
+          options={{
+            headerShown: true,
+            title: 'Crear cuenta',
+            headerStyle: { backgroundColor: COLORS.azulMarino },
+            headerTintColor: COLORS.blancoPuro,
+            headerBackTitleVisible: false
+          }}
+        />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
+export default function App() {
+  return (
     <AuthProvider>
-      <NavigationContainer>
-        <Stack.Navigator initialRouteName="MainTabs">
-          <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
-          <Stack.Screen
-            name="actRegistroNegocio"
-            component={ActRegistroNegocio}
-            options={{
-              headerShown: true,
-              title: 'Registro de Negocio',
-              headerStyle: { backgroundColor: COLORS.azulMarino },
-              headerTintColor: COLORS.blancoPuro,
-              headerBackTitleVisible: false
-            }}
-          />
-          <Stack.Screen
-            name="actInicioSesion"
-            component={ActInicioSesion}
-            options={{
-              headerShown: true,
-              title: 'Iniciar Sesión',
-              headerStyle: { backgroundColor: COLORS.azulMarino },
-              headerTintColor: COLORS.blancoPuro,
-              headerBackTitleVisible: false
-            }}
-          />
-        </Stack.Navigator>
-      </NavigationContainer>
+      <AppNavigator />
     </AuthProvider>
   );
 }

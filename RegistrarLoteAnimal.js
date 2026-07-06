@@ -15,9 +15,7 @@ import { Camera, CameraView } from 'expo-camera';
 import CalendarioModal from './CalendarioModal';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
-
-
-const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
+import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
 
 const TIPOS_LOTE = [
     { id: 'res', label: 'Res', especie: 'BOVINO', icono: 'nutrition', color: COLORS.rojoIntenso, fondo: '#fff1f2' },
@@ -532,7 +530,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
         try {
             const response = await fetch(`${API_BASE_URL}/registrar-lote-animal`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders(usuario) },
                 body: JSON.stringify(construirPayload())
             });
 
