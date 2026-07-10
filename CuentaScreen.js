@@ -22,7 +22,7 @@ export default function CuentaScreen({ navigation }) {
   const [perfil, setPerfil] = useState(null);
   const [form, setForm] = useState({
     nombre: '',
-    email: '',
+    email: '', 
     telefono: '',
     nombre_negocio: '',
     municipio: '',

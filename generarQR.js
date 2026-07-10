@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     StyleSheet,
     Text,
@@ -6,71 +6,76 @@ import {
     TouchableOpacity,
     ScrollView,
     Alert,
-    ActivityIndicator // Para mostrar que está cargando mientras consulta la BD
+    ActivityIndicator
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
 
+const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
+
+/**
+ * Diccionario estático de tips por tipo de corte.
+ * En futuras versiones, esto debería migrar a una tabla 'catalogo_cortes' en la BD.
+ */
+const TIPS_POR_CORTE = {
+    'rib eye': 'Sella a fuego alto por 2 min de cada lado y deja reposar antes de cortar.',
+    'sirloin': ' Ideal para asar al carbón. Marina con sal en grano y pimienta negra.',
+    't-bone': ' Asa a fuego medio para que ambos lados (lomo y filete) queden perfectos.',
+    'arrachera': 'Fuego alto y vuelta rápida. Córtala en contra de las fibras para mayor suavidad.',
+    'picaña': ' Asa con la capa de grasa hacia arriba primero para mantener la jugosidad.',
+    'default': ' Mantener en refrigeración a 4°C. Consumir antes de la fecha indicada.'
+};
+
+/**
+ * Función auxiliar para buscar el tip adecuado ignorando mayúsculas.
+ */
+const obtenerTipPorCorte = (tipoCorte) => {
+    if (!tipoCorte) return TIPS_POR_CORTE['default'];
+    const corteNormalizado = String(tipoCorte).toLowerCase();
+    
+    // Busca si alguna clave del diccionario está incluida en el nombre del corte
+    const claveEncontrada = Object.keys(TIPS_POR_CORTE).find(clave => corteNormalizado.includes(clave));
+    
+    return claveEncontrada ? TIPS_POR_CORTE[claveEncontrada] : TIPS_POR_CORTE['default'];
+};
 
 export default function GenerarQR({ onVolver }) {
-    const [qrValor, setQrValor] = useState('');
-    const [datosLote, setDatosLote] = useState(null);
-    const [mostrarTarjeta, setMostrarTarjeta] = useState(false);
-    const [cargando, setCargando] = useState(false); // Estado para el spinner de carga
+    const [lotes, setLotes] = useState([]);
+    const [cargandoLista, setCargandoLista] = useState(true);
+    const [loteSeleccionado, setLoteSeleccionado] = useState(null);
 
-    // 🧬 FUNCIÓN ADAPTADA PARA BASE DE DATOS
-    const ejecutarGeneracionLote = async () => {
-        setCargando(true); // Activamos animación de carga
+    // Cargar la lista de lotes al montar el componente
+    useEffect(() => {
+        obtenerLotesDesdeBD();
+    }, []);
 
+    /**
+     * Consume el endpoint GET /api/lotes para traer el inventario actual.
+     */
+    const obtenerLotesDesdeBD = async () => {
+        setCargandoLista(true);
         try {
-            /* 🌐 CONEXIÓN BASE DE DATOS (PROXIMAMENTE):
-              Aquí es donde harás la petición HTTP POST a tu backend en PHP.
-              Ejemplo de estructura futura:
-              
-              const respuesta = await fetch('https://biosello/backend.vercel.app/controlador/registrar_lote.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tenant_id: 1,
-                    producto: "Corte Primario - Rib Eye",
-                    origen: "Rancho El Huasteco, Hgo.",
-                    temperatura: "3.5°C"
-                })
-              });
-              const datosServidor = await respuesta.json();
-            */
+            const response = await fetch(`${API_BASE_URL}/lotes`);
+            const result = await response.json();
 
-            // 🕒 SIMULACIÓN DE RETARDO DE RED (Simula que tarda 1.5 segundos en responder el servidor)
-            await new Promise(resolve => setTimeout(resolve, 1500));
-
-            // Simulamos la respuesta que te daría tu base de datos MySQL (ya con un ID auto-incremental real)
-            const datosDesdeBD = {
-                tenant_id: 1,
-                lote_id: "LOT-2026-" + Math.floor(Math.random() * 9000 + 1000), // En el futuro será: datosServidor.lote_id
-                producto: "Corte Primario - Rib Eye",
-                origen: "Rancho El Huasteco, Hgo.",
-                fechaSacrificio: new Date().toISOString().split('T')[0], // Fecha real del sistema
-                fechaEmpaque: new Date().toISOString().split('T')[0],
-                temperaturaConservacion: "3.5°C",
-                estado: "Fresco / Óptima Calidad"
-            };
-
-            // Estructuramos la URL dinámica que se guardará en el QR
-            const urlPayload = `https://biosell.app/trazabilidad?tenant=${datosDesdeBD.tenant_id}&lote=${datosDesdeBD.lote_id}`;
-
-            // Actualizamos los estados de React con la respuesta del servidor
-            setDatosLote(datosDesdeBD);
-            setQrValor(urlPayload);
-            setMostrarTarjeta(true);
-
-            Alert.alert("Éxito", `Lote guardado en Base de Datos e identificador vinculado: ${datosDesdeBD.lote_id}`);
-
+            if (result.success) {
+                // Filtramos solo los lotes activos para imprimir etiquetas
+                const lotesActivos = result.data.filter(lote => lote.estado === 'activo');
+                setLotes(lotesActivos);
+            } else {
+                Alert.alert("Error", "No se pudieron obtener los lotes.");
+            }
         } catch (error) {
-            Alert.alert("Error de Conexión", "No se pudo conectar con el servidor de BioSell. Intente más tarde.");
+            Alert.alert("Error de red", "No se pudo conectar con el servidor.");
             console.error(error);
         } finally {
-            setCargando(false); // Apagamos el spinner de carga
+            setCargandoLista(false);
         }
+    };
+
+    const seleccionarLote = (lote) => {
+        setLoteSeleccionado(lote);
     };
 
     return (
@@ -79,54 +84,118 @@ export default function GenerarQR({ onVolver }) {
                 <Text style={styles.textoRegresarLink}>← Volver al Panel Principal</Text>
             </TouchableOpacity>
 
-            <Text style={styles.tituloSeccionQR}>Módulo de Trazabilidad Operativa</Text>
-            <Text style={styles.subtituloSeccionQR}>Generación y vinculación de códigos de salida en mostrador [RF-02, RF-10].</Text>
+            <Text style={styles.tituloSeccionQR}>Generar Etiqueta de Salida</Text>
+            <Text style={styles.subtituloSeccionQR}>Selecciona un lote activo para generar su código de barras térmico.</Text>
 
-            {/* Botón de acción condicional (Muestra spinner si está cargando) */}
-            <TouchableOpacity
-                style={[styles.botonAccionQR, cargando && styles.botonDeshabilitado]}
-                onPress={ejecutarGeneracionLote}
-                disabled={cargando}
-            >
-                {cargando ? (
-                    <ActivityIndicator size="small" color={COLORS.blancoPuro} />
-                ) : (
-                    <Text style={styles.textoBotonQR}>🧬 Registrar Lote y Crear QR</Text>
-                )}
-            </TouchableOpacity>
+            {/* ZONA DE SELECCIÓN DE LOTE */}
+            {!loteSeleccionado ? (
+                <View style={styles.seccionLista}>
+                    {cargandoLista ? (
+                        <ActivityIndicator size="large" color={COLORS.rojoIntenso} style={{ marginTop: 30 }} />
+                    ) : lotes.length === 0 ? (
+                        <Text style={styles.textoVacio}>No hay lotes activos disponibles.</Text>
+                    ) : (
+                        lotes.map((lote) => (
+                            <TouchableOpacity 
+                                key={lote.id_lote} 
+                                style={styles.tarjetaLoteItem}
+                                onPress={() => seleccionarLote(lote)}
+                            >
+                                <View style={styles.iconoLoteLista}>
+                                    <Ionicons name="cube" size={24} color={COLORS.blancoPuro} />
+                                </View>
+                                <View style={styles.infoLoteLista}>
+                                    <Text style={styles.tituloLoteItem}>{lote.codigo_lote}</Text>
+                                    <Text style={styles.subtituloLoteItem}>{lote.tipo_corte} - {lote.peso_kg} kg</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color="#94a3b8" />
+                            </TouchableOpacity>
+                        ))
+                    )}
+                </View>
+            ) : (
+                /* ZONA DE VISTA PREVIA DE LA ETIQUETA (ESTILO TICKET) */
+                <View style={styles.contenedorEtiqueta}>
+                    {(() => {
+                        const codigoTrazabilidad = String(loteSeleccionado.id_lote).padStart(10, '0');
+                        const urlQR = `https://biosell.app/trazabilidad?id_lote=${codigoTrazabilidad}`;
 
-            {/* Vista previa de la etiqueta (Se alimenta directo del estado datosLote) */}
-            {mostrarTarjeta && (
-                <View style={styles.tarjetaEtiqueta}>
-                    <Text style={styles.encabezadoEtiqueta}>Etiqueta de Salida BioSell</Text>
+                        return (
+                            <>
+                                <TouchableOpacity 
+                                    style={styles.botonCambiarLote}
+                                    onPress={() => setLoteSeleccionado(null)}
+                                >
+                                    <Ionicons name="refresh" size={16} color={COLORS.blancoPuro} />
+                                    <Text style={styles.textoCambiarLote}>Seleccionar otro lote</Text>
+                                </TouchableOpacity>
 
-                    <View style={styles.bloqueQR}>
-                        <QRCode
-                            value={qrValor}
-                            size={170}
-                            color="#002855"
-                            backgroundColor={COLORS.blancoPuro}
-                        />
-                    </View>
+                                {/* ETIQUETA HORIZONTAL */}
+                                <View style={styles.tarjetaTicketHorizontal}>
+                                    
+                                    {/* COLUMNA IZQUIERDA: Información del Lote */}
+                                    <View style={styles.ticketIzquierda}>
+                                        <View style={styles.cabeceraTicket}>
+                                            <Text style={styles.textoLogoTicket}>BIOSELLO</Text>
+                                        </View>
+                                        
+                                        <Text style={styles.corteTicket}>{loteSeleccionado.tipo_corte.toUpperCase()}</Text>
+                                        <Text style={styles.pesoTicket}>Peso Neto: {loteSeleccionado.peso_kg} kg</Text>
+                                        
+                                        <View style={styles.divisorTicket} />
+                                        
+                                        <View style={styles.filaInfoTicket}>
+                                            <Text style={styles.labelTicket}>LOTE INT:</Text>
+                                            <Text style={styles.valorTicket}>{loteSeleccionado.codigo_lote}</Text>
+                                        </View>
+                                        <View style={styles.filaInfoTicket}>
+                                            <Text style={styles.labelTicket}>PROD:</Text>
+                                            <Text style={styles.valorTicket}>{loteSeleccionado.fecha_ingreso}</Text>
+                                        </View>
+                                        <View style={styles.filaInfoTicket}>
+                                            <Text style={styles.labelTicket}>VENC:</Text>
+                                            <Text style={styles.valorTicket}>{loteSeleccionado.fecha_vencimiento}</Text>
+                                        </View>
+                                        <Text style={styles.tituloTip}>
+                                                {'Tips del productor:'}
+                                            </Text>
+                                        {/* Tip Dinámico */}
+                                        <View style={styles.cajaTip}>
+                                            <Text style={styles.textoTip}>
+                                                {loteSeleccionado.tip_recomendacion || ' Mantener en refrigeración a 4°C.'}
+                                            </Text>
+                                        </View>
+                                    </View>
 
-                    <Text style={styles.codigoRespaldo}>N.° LOTE REAL: {datosLote?.lote_id}</Text>
+                                    {/* COLUMNA DERECHA: QR y Código Manual */}
+                                    <View style={styles.ticketDerecha}>
+                                        <View style={styles.marcoQR}>
+                                            <QRCode
+                                                value={urlQR}
+                                                size={110} // Tamaño ajustado para formato horizontal
+                                                color="#000000" 
+                                                backgroundColor={COLORS.blancoPuro}
+                                            />
+                                        </View>
+                                        {/* Código manual justo debajo del QR */}
+                                        <Text style={styles.valorCodigoManual}>{codigoTrazabilidad}</Text>
+                                    </View>
 
-                    <View style={styles.tablaInfo}>
-                        <Text style={styles.infoLinea}><Text style={styles.bold}>Producto:</Text> {datosLote?.producto}</Text>
-                        <Text style={styles.infoLinea}><Text style={styles.bold}>Origen:</Text> {datosLote?.origen}</Text>
-                        <Text style={styles.infoLinea}><Text style={styles.bold}>Registrado el:</Text> {datosLote?.fechaEmpaque}</Text>
-                        <Text style={styles.infoLinea}><Text style={styles.bold}>Norma:</Text> NOM-004-SAGARPA Compliant</Text>
-                    </View>
+                                </View>
 
-                    <TouchableOpacity
-                        style={styles.botonImprimir}
-                        onPress={() => Alert.alert("Impresora", "Enviando formato de impresión a la tiqueteadora Bluetooth...")}
-                    >
-                        <Text style={styles.textoBotonImprimir}>Imprimir Ticket Adhesivo</Text>
-                    </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.botonImprimir}
+                                    onPress={() => Alert.alert("Impresora", "Conectando con tiqueteadora Bluetooth...")}
+                                >
+                                    <Ionicons name="print" size={18} color={COLORS.blancoPuro} style={{marginRight: 8}}/>
+                                    <Text style={styles.textoBotonImprimir}>Imprimir Etiqueta</Text>
+                                </TouchableOpacity>
+                            </>
+                        );
+                    })()}
                 </View>
             )}
-            <View style={{ height: 40 }} />
+            <View style={{ height: 50 }} />
         </ScrollView>
     );
 }
@@ -135,18 +204,69 @@ const styles = StyleSheet.create({
     contenedorQR: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 15 },
     botonRegresarLink: { marginVertical: 10 },
     textoRegresarLink: { color: COLORS.azulMarino, fontWeight: FONTS.bold, fontSize: 14 },
-    tituloSeccionQR: { fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold, color: COLORS.azulMarino, marginTop: 10 },
+    tituloSeccionQR: { fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold, color: '#f97316' }, // Anaranjado
     subtituloSeccionQR: { fontSize: 13, color: '#64748b', marginTop: 4, marginBottom: 20 },
-    botonAccionQR: { backgroundColor: COLORS.rojoIntenso, paddingVertical: 16, borderRadius: 10, alignItems: 'center', elevation: 3, height: 55, justifyContent: 'center' },
-    botonDeshabilitado: { backgroundColor: '#94a3b8' },
-    textoBotonQR: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, fontWeight: FONTS.bold },
-    tarjetaEtiqueta: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioTarjeta, padding: 20, marginTop: 25, alignItems: 'center', elevation: 2 },
-    encabezadoEtiqueta: { fontSize: SIZES.textoBase, fontWeight: FONTS.bold, color: '#334155', marginBottom: 15, textTransform: 'uppercase', letterSpacing: 1 },
-    bloqueQR: { padding: 12, backgroundColor: COLORS.blancoPuro, borderRadius: SIZES.radioTarjeta, borderWidth: 1, borderColor: '#cbd5e1' },
-    codigoRespaldo: { fontSize: 15, fontWeight: FONTS.bold, color: COLORS.azulMarino, marginTop: 15, letterSpacing: 0.5 },
-    tablaInfo: { width: '100%', backgroundColor: COLORS.blancoPuro, borderRadius: SIZES.radioBoton, padding: 12, marginTop: 15, borderWidth: 1, borderColor: '#e2e8f0' },
-    infoLinea: { fontSize: 13, color: '#475569', marginVertical: 3 },
-    bold: { fontWeight: FONTS.bold, color: '#1e293b' },
-    botonImprimir: { backgroundColor: COLORS.azulMarino, width: '100%', paddingVertical: 12, borderRadius: SIZES.radioBoton, alignItems: 'center', marginTop: 20 },
-    textoBotonImprimir: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: 14 }
+    
+    // Estilos de la lista de selección
+    seccionLista: { marginTop: 10 },
+    textoVacio: { textAlign: 'center', color: '#64748b', marginTop: 20, fontStyle: 'italic' },
+    tarjetaLoteItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, padding: 15, marginBottom: 12 },
+    iconoLoteLista: { backgroundColor: '#f97316', width: 40, height: 40, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 12 }, // Anaranjado
+    infoLoteLista: { flex: 1 },
+    tituloLoteItem: { fontSize: 15, fontWeight: FONTS.bold, color: '#0f172a' },
+    subtituloLoteItem: { fontSize: 13, color: '#475569', marginTop: 2 },
+
+    // Estilos del Ticket/Etiqueta
+    contenedorEtiqueta: { alignItems: 'center', marginTop: 10, width: '100%' },
+    botonCambiarLote: { flexDirection: 'row', backgroundColor: '#64748b', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, marginBottom: 20, alignItems: 'center' },
+    textoCambiarLote: { color: COLORS.blancoPuro, fontSize: 12, fontWeight: FONTS.bold, marginLeft: 5 },
+    
+    tarjetaTicketHorizontal: { 
+        flexDirection: 'row', // MAGIA: Esto pone las cosas lado a lado
+        width: '100%', 
+        backgroundColor: COLORS.blancoPuro, 
+        borderWidth: 2, 
+        borderColor: COLORS.rojoIntenso, 
+        borderRadius: 8, 
+        overflow: 'hidden',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    // Columna Izquierda (Info)
+    ticketIzquierda: { 
+        flex: 1.8, // Toma el 65% del ancho aprox
+        padding: 12, 
+        borderRightWidth: 2, 
+        borderRightColor: '#e2e8f0', 
+        borderStyle: 'dashed', // Línea punteada simulando el desprendible
+        backgroundColor: COLORS.blancoPuro 
+    },
+
+    cabeceraTicket: { backgroundColor: COLORS.rojoIntenso, paddingVertical: 6, alignItems: 'center', borderRadius: 4, marginBottom: 10 },
+    textoLogoTicket: { color: COLORS.blancoPuro, fontSize: 16, fontWeight: '900', letterSpacing: 2 },
+    
+    corteTicket: { fontSize: 18, fontWeight: '900', color: '#f97316', textAlign: 'center' }, 
+    pesoTicket: { fontSize: 12, color: '#475569', textAlign: 'center', marginTop: 2, fontWeight: '600' },
+    
+    divisorTicket: { height: 1, backgroundColor: '#e2e8f0', marginVertical: 8 },
+    
+    filaInfoTicket: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 2 },
+    labelTicket: { fontSize: 10, color: '#64748b', fontWeight: FONTS.bold },
+    valorTicket: { fontSize: 11, color: '#0f172a', fontWeight: '800' },
+
+    cajaTip: { backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fed7aa', padding: 8, borderRadius: 4, marginTop: 8 },
+    textoTip: { fontSize: 10, color: '#9a3412', fontStyle: 'italic', lineHeight: 14, textAlign: 'center' },
+    tituloTip: { fontSize: 12, fontWeight: FONTS.bold, color: '#ea580c', marginBottom: 4 },
+    
+    pieTicket: { backgroundColor: '#f8fafc', paddingVertical: 20, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+    textoInstruccionQR: { fontSize: 11, color: '#64748b', marginTop: 12, fontWeight: '600' },
+    marcoQR: { padding: 8, backgroundColor: COLORS.blancoPuro, borderRadius: 8, borderWidth: 1, borderColor: '#cbd5e1', marginBottom: 10 },
+    
+    valorCodigoManual: { fontSize: 18, color: COLORS.textoOscuro, fontWeight: '900', letterSpacing: 1, marginTop: 2 },
+
+    botonImprimir: { flexDirection: 'row', backgroundColor: '#f97316', width: '100%', paddingVertical: 16, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 25, elevation: 2 },
+    textoBotonImprimir: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: 16 }
 });

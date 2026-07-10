@@ -16,7 +16,6 @@ import CalendarioModal from './CalendarioModal';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
 
-
 const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
 
 const TIPOS_LOTE = [
@@ -31,8 +30,8 @@ const MOTIVOS = ['SACRIFICIO', 'ENGORDA', 'REPRODUCCION', 'EXPOSICION', 'VENTA']
 const ESTADOS_LOTE = ['activo', 'procesado', 'vendido', 'caducado'];
 
 const crearFormInicial = (especie = 'BOVINO') => ({
-    guía_tránsito: {
-        folio_guía: '',
+    guia_transito: { 
+        folio_guia: '', 
         num_reemo: '',
         motivo_movilizacion: 'SACRIFICIO',
         fecha_expedicion: '',
@@ -72,6 +71,7 @@ const crearFormInicial = (especie = 'BOVINO') => ({
         peso_kg: '',
         fecha_ingreso: '',
         fecha_vencimiento: '',
+        tip_recomendacion: '',
         estado: 'activo'
     }
 });
@@ -98,20 +98,20 @@ const normalizarClave = (clave) => String(clave || '')
     .replace(/^_|_$/g, '');
 
 const MAPA_DATOS_GUIA = {
-    folio: ['guía_tránsito', 'folio_guía'],
-    folio_guía: ['guía_tránsito', 'folio_guía'],
-    guía: ['guía_tránsito', 'folio_guía'],
-    num_reemo: ['guía_tránsito', 'num_reemo'],
-    reemo: ['guía_tránsito', 'num_reemo'],
-    motivo: ['guía_tránsito', 'motivo_movilizacion'],
-    motivo_movilizacion: ['guía_tránsito', 'motivo_movilizacion'],
-    fecha: ['guía_tránsito', 'fecha_expedicion'],
-    fecha_expedicion: ['guía_tránsito', 'fecha_expedicion'],
-    vigencia: ['guía_tránsito', 'vigencia_dias'],
-    vigencia_dias: ['guía_tránsito', 'vigencia_dias'],
-    centro: ['guía_tránsito', 'centro_expedidor'],
-    centro_expedidor: ['guía_tránsito', 'centro_expedidor'],
-    elaboro: ['guía_tránsito', 'elaboro'],
+    folio: ['guia_transito', 'folio_guia'],
+    folio_guia: ['guia_transito', 'folio_guia'],
+    guia: ['guia_transito', 'folio_guia'],
+    num_reemo: ['guia_transito', 'num_reemo'],
+    reemo: ['guia_transito', 'num_reemo'],
+    motivo: ['guia_transito', 'motivo_movilizacion'],
+    motivo_movilizacion: ['guia_transito', 'motivo_movilizacion'],
+    fecha: ['guia_transito', 'fecha_expedicion'],
+    fecha_expedicion: ['guia_transito', 'fecha_expedicion'],
+    vigencia: ['guia_transito', 'vigencia_dias'],
+    vigencia_dias: ['guia_transito', 'vigencia_dias'],
+    centro: ['guia_transito', 'centro_expedidor'],
+    centro_expedidor: ['guia_transito', 'centro_expedidor'],
+    elaboro: ['guia_transito', 'elaboro'],
     upp_origen: ['origen', 'upp_origen'],
     localidad_origen: ['origen', 'localidad_origen'],
     municipio_origen: ['origen', 'municipio_origen'],
@@ -148,13 +148,13 @@ const MAPA_DATOS_GUIA = {
 const convertirDatosEscaneados = (datos) => {
     if (!datos || typeof datos !== 'object') return null;
 
-    const grupos = ['guía_tránsito', 'origen', 'propietario', 'rastro', 'animal', 'lote'];
+    const grupos = ['guia_transito', 'origen', 'propietario', 'rastro', 'animal', 'lote'];
     if (grupos.some((grupo) => datos[grupo] && typeof datos[grupo] === 'object')) {
         return datos;
     }
 
     const resultado = {
-        guía_tránsito: {},
+        guia_transito: {},
         origen: {},
         propietario: {},
         rastro: {},
@@ -179,7 +179,7 @@ const normalizarDatosEscaneados = (contenido) => {
     try {
         return convertirDatosEscaneados(JSON.parse(textoPlano));
     } catch (error) {
-        // El codigo puede venir como URL, query string o texto plano.
+        // Fallback: intentar parseo de URL o strings
     }
 
     const datos = {};
@@ -191,7 +191,7 @@ const normalizarDatosEscaneados = (contenido) => {
             });
         }
     } catch (error) {
-        // Si no es URL valida, se intenta como texto delimitado.
+        // Ignorar si no es URL
     }
 
     if (Object.keys(datos).length === 0 && textoPlano.includes('=')) {
@@ -213,21 +213,16 @@ const normalizarDatosEscaneados = (contenido) => {
     return convertirDatosEscaneados(datos);
 };
 
-// ---------------------------------------------------------------------------
-// IMPORTANTE: InputCampo, FechaCampo, OpcionesCampo y Seccion viven FUERA del
-// componente RegistrarLoteAnimal. Antes InputCampo se definia dentro del
-// componente (envuelto en useRef), lo que provocaba que React lo tratara
-// como un tipo de componente distinto en cada render del padre, desmontando
-// y remontando el TextInput en cada tecla -> el teclado se cerraba tras
-// escribir un solo caracter. Al declararlo aqui afuera, su identidad se
-// mantiene estable entre renders y el foco del input ya no se pierde.
-// ---------------------------------------------------------------------------
-
+/**
+ * Renderiza un campo de entrada con soporte para textos de ayuda y errores.
+ * Declarado fuera del componente principal para mantener estabilidad de identidad entre renders.
+ */
 const InputCampo = ({
     grupo,
     campo,
     label,
     placeholder,
+    ayuda,
     keyboardType = 'default',
     autoCapitalize = 'sentences',
     maxLength,
@@ -251,12 +246,16 @@ const InputCampo = ({
                 value={valor}
                 onChangeText={(text) => actualizarCampo(grupo, campo, text)}
             />
+            {ayuda && !error && <Text style={styles.textoAyuda}>{ayuda}</Text>}
             {error && <Text style={styles.errorText}>{error}</Text>}
         </View>
     );
 };
 
-const FechaCampo = ({ grupo, campo, label, formData, errores, abrirCalendario }) => {
+/**
+ * Renderiza un selector de fecha conectado al modal de calendario.
+ */
+const FechaCampo = ({ grupo, campo, label, ayuda, formData, errores, abrirCalendario }) => {
     const error = errores[`${grupo}.${campo}`];
     return (
         <View style={styles.campo}>
@@ -270,6 +269,7 @@ const FechaCampo = ({ grupo, campo, label, formData, errores, abrirCalendario })
                 </Text>
                 <Ionicons name="calendar" size={18} color="#002855" />
             </TouchableOpacity>
+            {ayuda && !error && <Text style={styles.textoAyuda}>{ayuda}</Text>}
             {error && <Text style={styles.errorText}>{error}</Text>}
         </View>
     );
@@ -350,7 +350,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
     const aplicarDatosGuía = (datosGuía = {}) => {
         setFormData((prev) => ({
             ...prev,
-            guía_tránsito: { ...prev.guía_tránsito, ...(datosGuía.guía_tránsito || {}) },
+            guia_transito: { ...prev.guia_transito, ...(datosGuía.guia_transito || {}) },
             origen: { ...prev.origen, ...(datosGuía.origen || {}) },
             propietario: { ...prev.propietario, ...(datosGuía.propietario || {}) },
             rastro: { ...prev.rastro, ...(datosGuía.rastro || {}) },
@@ -372,7 +372,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
         const { status } = await Camera.requestCameraPermissionsAsync();
 
         if (status !== 'granted') {
-            Alert.alert('Permiso requerido', 'Necesitamos acceso a la camara para escanear la guía.');
+            Alert.alert('Permiso requerido', 'Necesitamos acceso a la cámara para escanear la guía.');
             return;
         }
 
@@ -389,7 +389,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
         if (!datosDetectados) {
             Alert.alert(
                 'Guía no reconocida',
-                'El codigo fue leido, pero no tiene datos compatibles para autocompletar el formulario.',
+                'El código fue leído, pero no tiene datos compatibles para autocompletar el formulario.',
                 [
                     { text: 'Escanear de nuevo', onPress: () => setScanBloqueado(false) },
                     { text: 'Cerrar', onPress: cerrarEscanerGuía }
@@ -400,9 +400,13 @@ export default function RegistrarLoteAnimal({ onVolver }) {
 
         aplicarDatosGuía(datosDetectados);
         cerrarEscanerGuía();
-        Alert.alert('Guía leida', 'Se autocompletaron los campos encontrados en el codigo.');
+        Alert.alert('Guía leída', 'Se autocompletaron los campos encontrados en el código.');
     };
 
+    /**
+     * Valida reglas de negocio del formulario.
+     * Retorna el objeto de errores para su evaluación síncrona durante el submit.
+     */
     const validarCampos = () => {
         const nuevosErrores = {};
         const requerido = (grupo, campo, mensaje) => {
@@ -411,78 +415,71 @@ export default function RegistrarLoteAnimal({ onVolver }) {
             }
         };
 
-        requerido('guía_tránsito', 'folio_guía', 'El folio de guía es obligatorio.');
-        requerido('guía_tránsito', 'fecha_expedicion', 'La fecha de expedicion es obligatoria.');
-        requerido('guía_tránsito', 'centro_expedidor', 'El centro expedidor es obligatorio.');
+       requerido('guia_transito', 'folio_guia', 'El folio de guía es obligatorio.');
+        requerido('guia_transito', 'fecha_expedicion', 'La fecha de expedición es obligatoria.');
+        requerido('guia_transito', 'centro_expedidor', 'El centro expedidor es obligatorio.');
         requerido('origen', 'upp_origen', 'La UPP de origen es obligatoria.');
         requerido('origen', 'localidad_origen', 'La localidad de origen es obligatoria.');
         requerido('origen', 'municipio_origen', 'El municipio de origen es obligatorio.');
         requerido('origen', 'entidad_federativa', 'La entidad federativa es obligatoria.');
+        
         requerido('propietario', 'nombre_propietario', 'El propietario es obligatorio.');
         requerido('propietario', 'curp_propietario', 'La CURP del propietario es obligatoria.');
         requerido('propietario', 'upp_propietario', 'La UPP del propietario es obligatoria.');
+        
         requerido('rastro', 'num_rastro', 'El número de rastro es obligatorio.');
         requerido('rastro', 'nombre_rastro', 'El nombre del rastro es obligatorio.');
         requerido('rastro', 'nombre_destinatario', 'El destinatario es obligatorio.');
         requerido('rastro', 'municipio', 'El municipio del rastro es obligatorio.');
         requerido('rastro', 'entidad_federativa', 'La entidad federativa del rastro es obligatoria.');
+        
         requerido('animal', 'num_arete', 'El número de arete es obligatorio.');
         requerido('animal', 'meses_edad', 'La edad en meses es obligatoria.');
-        requerido('lote', 'codigo_lote', 'El codigo de lote es obligatorio.');
+        
+        requerido('lote', 'codigo_lote', 'El código de lote es obligatorio.');
         requerido('lote', 'tipo_corte', 'El tipo de corte es obligatorio.');
         requerido('lote', 'peso_kg', 'El peso es obligatorio.');
         requerido('lote', 'fecha_ingreso', 'La fecha de ingreso es obligatoria.');
         requerido('lote', 'fecha_vencimiento', 'La fecha de vencimiento es obligatoria.');
 
         if (formData.propietario.curp_propietario && limpiarTexto(formData.propietario.curp_propietario).length !== 18) {
-            nuevosErrores['propietario.curp_propietario'] = 'La CURP debe tener 18 caracteres.';
+            nuevosErrores['propietario.curp_propietario'] = 'La CURP debe tener exactamente 18 caracteres.';
         }
-
-        if (formData.guía_tránsito.fecha_expedicion && !fechaValida(formData.guía_tránsito.fecha_expedicion)) {
-            nuevosErrores['guía_tránsito.fecha_expedicion'] = 'Usa el formato AAAA-MM-DD.';
+        if (formData.guia_transito.fecha_expedicion && !fechaValida(formData.guia_transito.fecha_expedicion)) {
+            nuevosErrores['guia_transito.fecha_expedicion'] = 'Usa el formato válido AAAA-MM-DD.';
         }
-
         if (formData.lote.fecha_ingreso && !fechaValida(formData.lote.fecha_ingreso)) {
-            nuevosErrores['lote.fecha_ingreso'] = 'Usa el formato AAAA-MM-DD.';
+            nuevosErrores['lote.fecha_ingreso'] = 'Usa el formato válido AAAA-MM-DD.';
         }
-
         if (formData.lote.fecha_vencimiento && !fechaValida(formData.lote.fecha_vencimiento)) {
-            nuevosErrores['lote.fecha_vencimiento'] = 'Usa el formato AAAA-MM-DD.';
+            nuevosErrores['lote.fecha_vencimiento'] = 'Usa el formato válido AAAA-MM-DD.';
         }
-
-        if (formData.guía_tránsito.vigencia_dias && !númeroPositivo(formData.guía_tránsito.vigencia_dias)) {
-            nuevosErrores['guía_tránsito.vigencia_dias'] = 'La vigencia debe ser mayor a 0.';
+        if (formData.guia_transito.vigencia_dias && !númeroPositivo(formData.guia_transito.vigencia_dias)) {
+            nuevosErrores['guia_transito.vigencia_dias'] = 'La vigencia debe ser mayor a 0 días.';
         }
-
         if (formData.animal.meses_edad && !Number.isInteger(Number(formData.animal.meses_edad))) {
-            nuevosErrores['animal.meses_edad'] = 'La edad debe ser un número entero.';
+            nuevosErrores['animal.meses_edad'] = 'La edad debe ser un número entero (meses).';
         }
-
         if (formData.lote.peso_kg && !númeroPositivo(formData.lote.peso_kg)) {
-            nuevosErrores['lote.peso_kg'] = 'El peso debe ser mayor a 0.';
+            nuevosErrores['lote.peso_kg'] = 'El peso debe ser mayor a 0 kg.';
         }
-
-        if (
-            fechaValida(formData.lote.fecha_ingreso)
-            && fechaValida(formData.lote.fecha_vencimiento)
-            && new Date(formData.lote.fecha_vencimiento) < new Date(formData.lote.fecha_ingreso)
-        ) {
-            nuevosErrores['lote.fecha_vencimiento'] = 'El vencimiento no puede ser anterior al ingreso.';
+        if (fechaValida(formData.lote.fecha_ingreso) && fechaValida(formData.lote.fecha_vencimiento) && new Date(formData.lote.fecha_vencimiento) < new Date(formData.lote.fecha_ingreso)) {
+            nuevosErrores['lote.fecha_vencimiento'] = 'El vencimiento no puede ser anterior al ingreso del lote.';
         }
 
         setErrores(nuevosErrores);
-        return Object.keys(nuevosErrores).length === 0;
+        return nuevosErrores;
     };
 
     const construirPayload = () => ({
-        guía_tránsito: {
-            folio_guía: limpiarTexto(formData.guía_tránsito.folio_guía),
-            num_reemo: limpiarTexto(formData.guía_tránsito.num_reemo) || null,
-            motivo_movilizacion: formData.guía_tránsito.motivo_movilizacion,
-            fecha_expedicion: limpiarTexto(formData.guía_tránsito.fecha_expedicion),
-            vigencia_dias: Number(formData.guía_tránsito.vigencia_dias),
-            centro_expedidor: limpiarTexto(formData.guía_tránsito.centro_expedidor),
-            elaboro: limpiarTexto(formData.guía_tránsito.elaboro) || null
+        guia_transito: {
+            folio_guia: limpiarTexto(formData.guia_transito.folio_guia), 
+            num_reemo: limpiarTexto(formData.guia_transito.num_reemo) || null,
+            motivo_movilizacion: formData.guia_transito.motivo_movilizacion,
+            fecha_expedicion: limpiarTexto(formData.guia_transito.fecha_expedicion),
+            vigencia_dias: Number(formData.guia_transito.vigencia_dias),
+            centro_expedidor: limpiarTexto(formData.guia_transito.centro_expedidor),
+            elaboro: limpiarTexto(formData.guia_transito.elaboro) || null
         },
         origen: {
             upp_origen: limpiarTexto(formData.origen.upp_origen),
@@ -516,6 +513,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
             peso_kg: Number(formData.lote.peso_kg),
             fecha_ingreso: limpiarTexto(formData.lote.fecha_ingreso),
             fecha_vencimiento: limpiarTexto(formData.lote.fecha_vencimiento),
+            tip_recomendacion: limpiarTexto(formData.lote.tip_recomendacion),
             estado: formData.lote.estado,
             id_negocio: usuario?.id_negocio || usuario?.negocio?.id_negocio || null,
             id_empleado: usuario?.id_usuario || usuario?.id || null
@@ -523,8 +521,17 @@ export default function RegistrarLoteAnimal({ onVolver }) {
     });
 
     const registrarLoteAnimal = async () => {
-        if (!validarCampos()) {
-            Alert.alert('Revisa el formulario', 'Hay campos obligatorios o formatos pendientes.');
+        const erroresEncontrados = validarCampos();
+        
+        // Verifica si hay errores de forma síncrona e informa al usuario exactamente qué falta
+        if (Object.keys(erroresEncontrados).length > 0) {
+            const listaMensajes = Object.values(erroresEncontrados).slice(0, 3).map(msg => `• ${msg}`).join('\n');
+            const textoExtra = Object.keys(erroresEncontrados).length > 3 ? '\n• ...y otros campos pendientes.' : '';
+            
+            Alert.alert(
+                'Datos Incompletos', 
+                `Por favor corrige lo siguiente antes de guardar:\n\n${listaMensajes}${textoExtra}`
+            );
             return;
         }
 
@@ -542,7 +549,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
             try {
                 result = textResult ? JSON.parse(textResult) : {};
             } catch (error) {
-                throw new Error(`Respuesta no valida del servidor: ${textResult.substring(0, 120)}`);
+                throw new Error(`Respuesta no válida del servidor: ${textResult.substring(0, 120)}`);
             }
 
             if (!response.ok || result.success === false) {
@@ -550,7 +557,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                 return;
             }
 
-            Alert.alert('Registro guardado', 'El lote, animal y guía quedaron registrados correctamente.', [
+            Alert.alert('Registro exitoso', 'El lote, animal y guía se han guardado correctamente.', [
                 {
                     text: 'Entendido',
                     onPress: () => {
@@ -561,7 +568,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                 }
             ]);
         } catch (error) {
-            Alert.alert('Error de conexion', `No se pudo conectar con el servidor. ${error.message}`);
+            Alert.alert('Error de conexión', `No se pudo conectar con el servidor. ${error.message}`);
         } finally {
             setLoading(false);
         }
@@ -575,7 +582,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                 </TouchableOpacity>
 
                 <Text style={styles.titulo}>Registrar Lote / Animal</Text>
-                <Text style={styles.subtitulo}>Que tipo de lote deseas registrar?</Text>
+                <Text style={styles.subtitulo}>¿Qué tipo de lote deseas registrar?</Text>
 
                 <View style={styles.selectorGrid}>
                     {TIPOS_LOTE.map((tipo) => (
@@ -610,12 +617,12 @@ export default function RegistrarLoteAnimal({ onVolver }) {
 
                 <Text style={styles.titulo}>Registrar Lote de {tipoSeleccionado.label}</Text>
                 <Text style={styles.subtitulo}>
-                    Captura basada en la Guía de Transito del Animal. La especie se asigna automáticamente como {tipoSeleccionado.especie}.
+                    Captura basada en la Guía de Tránsito del Animal. La especie se asigna automáticamente como {tipoSeleccionado.especie}.
                 </Text>
 
                 <Seccion
                     titulo="Guía de tránsito"
-                    subtitulo="Documento oficial de movilizacion"
+                    subtitulo="Documento oficial de movilización"
                     icono="document-text"
                 >
                     <TouchableOpacity style={styles.botonEscanear} onPress={escanearGuíaTransito}>
@@ -623,46 +630,50 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                         <Text style={styles.textoBotonEscanear}>Escanear guía de tránsito</Text>
                     </TouchableOpacity>
                     <InputCampo
-                        grupo="guía_tránsito"
-                        campo="folio_guía"
+                        grupo="guia_transito"
+                        campo="folio_guia"
                         label="Folio de guía"
                         placeholder="Ej. 55627"
+                        ayuda="Número principal de la guía impresa."
                         autoCapitalize="characters"
                         formData={formData}
                         errores={errores}
                         actualizarCampo={actualizarCampo}
                     />
                     <InputCampo
-                        grupo="guía_tránsito"
+                        grupo="guia_transito"
                         campo="num_reemo"
-                        label="Numero REEMO"
+                        label="Número REEMO"
                         placeholder="Ej. 214970"
+                        ayuda="Opcional. Registro Electrónico de Movilización."
                         keyboardType="numeric"
                         formData={formData}
                         errores={errores}
                         actualizarCampo={actualizarCampo}
                     />
                     <OpcionesCampo
-                        grupo="guía_tránsito"
+                        grupo="guia_transito"
                         campo="motivo_movilizacion"
-                        label="Motivo de movilizacion"
+                        label="Motivo de movilización"
                         opciones={MOTIVOS}
                         formData={formData}
                         actualizarCampo={actualizarCampo}
                     />
                     <FechaCampo
-                        grupo="guía_tránsito"
+                        grupo="guia_transito"
                         campo="fecha_expedicion"
                         label="Fecha de expedición"
+                        ayuda="Día en que se emitió el documento."
                         formData={formData}
                         errores={errores}
                         abrirCalendario={abrirCalendario}
                     />
                     <InputCampo
-                        grupo="guía_tránsito"
+                        grupo="guia_transito"
                         campo="vigencia_dias"
-                        label="Vigencia en dias"
+                        label="Vigencia en días"
                         placeholder="3"
+                        ayuda="Número de días que la guía es válida."
                         keyboardType="numeric"
                         maxLength={3}
                         formData={formData}
@@ -670,20 +681,22 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                         actualizarCampo={actualizarCampo}
                     />
                     <InputCampo
-                        grupo="guía_tránsito"
+                        grupo="guia_transito"
                         campo="centro_expedidor"
                         label="Centro expedidor"
                         placeholder="Ej. AGL HUEJUTLA DE REYES"
+                        ayuda="Organización o centro que validó la guía."
                         autoCapitalize="characters"
                         formData={formData}
                         errores={errores}
                         actualizarCampo={actualizarCampo}
                     />
                     <InputCampo
-                        grupo="guía_tránsito"
+                        grupo="guia_transito"
                         campo="elaboro"
-                        label="Elaboro"
-                        placeholder="Nombre de quien elaboro"
+                        label="Elaboró"
+                        placeholder="Nombre de quien elaboró"
+                        ayuda="Persona responsable de la emisión."
                         autoCapitalize="characters"
                         formData={formData}
                         errores={errores}
@@ -701,6 +714,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                         campo="upp_origen"
                         label="UPP origen"
                         placeholder="Ej. 130285311002"
+                        ayuda="Unidad de Producción Pecuaria (12 dígitos)."
                         autoCapitalize="characters"
                         formData={formData}
                         errores={errores}
@@ -711,6 +725,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                         campo="localidad_origen"
                         label="Localidad origen"
                         placeholder="Ej. Chalahuiyapa"
+                        ayuda="Nombre de la comunidad o rancho de partida."
                         formData={formData}
                         errores={errores}
                         actualizarCampo={actualizarCampo}
@@ -737,7 +752,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
 
                 <Seccion
                     titulo="Propietario"
-                    subtitulo="Dueno legal en origen"
+                    subtitulo="Dueño legal en origen"
                     icono="person"
                 >
                     <InputCampo
@@ -745,6 +760,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                         campo="nombre_propietario"
                         label="Nombre propietario"
                         placeholder="Nombre completo"
+                        ayuda="Dueño legal del animal registrado en la guía."
                         autoCapitalize="characters"
                         formData={formData}
                         errores={errores}
@@ -755,6 +771,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                         campo="curp_propietario"
                         label="CURP propietario"
                         placeholder="18 caracteres"
+                        ayuda="Clave Única de Registro de Población del dueño."
                         autoCapitalize="characters"
                         maxLength={18}
                         formData={formData}
@@ -766,6 +783,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                         campo="upp_propietario"
                         label="UPP propietario"
                         placeholder="Ej. 130285311002"
+                        ayuda="Unidad de Producción vinculada al propietario."
                         autoCapitalize="characters"
                         formData={formData}
                         errores={errores}
@@ -775,14 +793,15 @@ export default function RegistrarLoteAnimal({ onVolver }) {
 
                 <Seccion
                     titulo="Destino / rastro"
-                    subtitulo="Instalacion de sacrificio"
+                    subtitulo="Instalación de sacrificio"
                     icono="business"
                 >
                     <InputCampo
                         grupo="rastro"
                         campo="num_rastro"
-                        label="Numero de rastro"
+                        label="Número de rastro"
                         placeholder="Ej. 2151"
+                        ayuda="Registro oficial de la instalación."
                         keyboardType="numeric"
                         formData={formData}
                         errores={errores}
@@ -803,6 +822,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                         campo="nombre_destinatario"
                         label="Destinatario"
                         placeholder="Nombre completo"
+                        ayuda="Persona o entidad que recibe al animal en destino."
                         autoCapitalize="characters"
                         formData={formData}
                         errores={errores}
@@ -830,14 +850,15 @@ export default function RegistrarLoteAnimal({ onVolver }) {
 
                 <Seccion
                     titulo="Animal"
-                    subtitulo="Identificacion y clasificacion"
+                    subtitulo="Identificación y clasificacion"
                     icono="paw"
                 >
                     <InputCampo
                         grupo="animal"
                         campo="num_arete"
-                        label="Numero de arete"
+                        label="Número de arete"
                         placeholder="Ej. 1301226566"
+                        ayuda="Identificador oficial del Sistema (ej. SINIIGA)."
                         keyboardType="numeric"
                         formData={formData}
                         errores={errores}
@@ -861,7 +882,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                     <OpcionesCampo
                         grupo="animal"
                         campo="clasificacion"
-                        label="Clasificación"
+                        label="clasificacion"
                         opciones={clasificacionesPorEspecie(formData.animal.especie)}
                         formData={formData}
                         actualizarCampo={actualizarCampo}
@@ -871,6 +892,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                         campo="meses_edad"
                         label="Edad en meses"
                         placeholder="Ej. 18"
+                        ayuda="Edad aproximada registrada del animal."
                         keyboardType="numeric"
                         formData={formData}
                         errores={errores}
@@ -883,7 +905,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                         <View style={[styles.checkbox, formData.animal.arete_faltante && styles.checkboxActivo]}>
                             {formData.animal.arete_faltante && <Ionicons name="checkmark" size={16} color={COLORS.blancoPuro} />}
                         </View>
-                        <Text style={styles.toggleTexto}>Arete faltante</Text>
+                        <Text style={styles.toggleTexto}>Arete físico faltante en animal</Text>
                     </TouchableOpacity>
                 </Seccion>
 
@@ -895,8 +917,9 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                     <InputCampo
                         grupo="lote"
                         campo="codigo_lote"
-                        label="Codigo de lote"
+                        label="Código de lote"
                         placeholder="Ej. LOT-2026-0001"
+                        ayuda="Identificador interno que se vinculará al QR."
                         autoCapitalize="characters"
                         formData={formData}
                         errores={errores}
@@ -906,7 +929,8 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                         grupo="lote"
                         campo="tipo_corte"
                         label="Tipo de corte"
-                        placeholder="Ej. Canal, res molida, bistec"
+                        placeholder="Ej. Canal entera, Media canal"
+                        ayuda="Describe la presentación inicial del producto."
                         formData={formData}
                         errores={errores}
                         actualizarCampo={actualizarCampo}
@@ -914,8 +938,9 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                     <InputCampo
                         grupo="lote"
                         campo="peso_kg"
-                        label="Peso kg"
+                        label="Peso final (kg)"
                         placeholder="Ej. 125.50"
+                        ayuda="Peso total posterior al procesamiento."
                         keyboardType="decimal-pad"
                         formData={formData}
                         errores={errores}
@@ -925,6 +950,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                         grupo="lote"
                         campo="fecha_ingreso"
                         label="Fecha de producción"
+                        ayuda="Cuándo ingresó el lote al sistema/cuarto frío."
                         formData={formData}
                         errores={errores}
                         abrirCalendario={abrirCalendario}
@@ -933,14 +959,26 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                         grupo="lote"
                         campo="fecha_vencimiento"
                         label="Fecha preferente de consumo"
+                        ayuda="Día límite recomendado para su venta/distribución."
                         formData={formData}
                         errores={errores}
                         abrirCalendario={abrirCalendario}
                     />
+                    <InputCampo
+                        grupo="lote"
+                        campo="tip_recomendacion"
+                        label="Tip de consumo (Opcional)"
+                        placeholder="Ej. Extender la carne en una bandeja..."
+                        ayuda="Este mensaje aparecerá impreso en la etiqueta final del cliente.
+                        Pueden ser tips para la refigeración o conservación de la carne."
+                        formData={formData}
+                        errores={errores}
+                        actualizarCampo={actualizarCampo}
+                    />
                     <OpcionesCampo
                         grupo="lote"
                         campo="estado"
-                        label="Estado"
+                        label="Estado inicial del lote"
                         opciones={ESTADOS_LOTE}
                         formData={formData}
                         actualizarCampo={actualizarCampo}
@@ -980,7 +1018,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                     </View>
 
                     <Text style={styles.escanerAyuda}>
-                        Coloca el QR o codigo de la guía dentro del recuadro. Si la guía solo viene impresa sin codigo, captura los datos manualmente.
+                        Coloca el QR o código de la guía dentro del recuadro. Si la guía solo viene impresa sin código, captura los datos manualmente.
                     </Text>
 
                     {scanBloqueado && (
@@ -1028,6 +1066,8 @@ const styles = StyleSheet.create({
     inputFechaBoton: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     fechaBotonTexto: { color: '#0f172a', fontSize: 15 },
     fechaPlaceholder: { color: '#94a3b8' },
+    textoAyuda: { color: '#64748b', fontSize: 12, marginTop: 4, fontStyle: 'italic' },
+    errorText: { color: COLORS.rojoIntenso, fontSize: 12, marginTop: 4 },
     botonEscanear: { backgroundColor: COLORS.azulMarino, borderRadius: SIZES.radioBoton, paddingVertical: 11, paddingHorizontal: 12, marginBottom: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
     textoBotonEscanear: { color: COLORS.blancoPuro, fontSize: 14, fontWeight: FONTS.bold },
     escanerPantalla: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 24 },
@@ -1041,7 +1081,6 @@ const styles = StyleSheet.create({
     textoReintentarScan: { color: COLORS.blancoPuro, fontWeight: FONTS.bold },
     especieBloqueada: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 12, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', gap: 8 },
     especieTexto: { color: '#334155', fontSize: 14, fontWeight: FONTS.bold },
-    errorText: { color: COLORS.rojoIntenso, fontSize: 12, marginTop: 4 },
     opciones: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     opcion: { borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: COLORS.blancoPuro, borderRadius: SIZES.radioBoton, paddingVertical: 8, paddingHorizontal: 10 },
     opcionActiva: { borderColor: COLORS.azulMarino, backgroundColor: COLORS.azulMarino },
