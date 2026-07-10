@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Text, View, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { CameraView, Camera } from "expo-camera";
+import { COLORS, SIZES, FONTS } from './src/theme/theme';
 
 export default function EscanerQR({ navigation }) {
   const [hasPermission, setHasPermission] = useState(null);
@@ -79,7 +80,6 @@ export default function EscanerQR({ navigation }) {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
