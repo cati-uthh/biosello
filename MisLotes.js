@@ -16,8 +16,34 @@ import CalendarioModal from './CalendarioModal';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
 
-
 const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
+
+// --- AYUDANTES DE FORMATEO DE FECHA ---
+const formatearParaUI = (fecha) => {
+    if (!fecha) return '';
+    if (fecha.includes('/')) return fecha; 
+    const partes = fecha.split('-');
+    if (partes.length === 3 && partes[0].length === 4) {
+        return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    }
+    return fecha;
+};
+
+const formatearParaBD = (fechaLocal) => {
+    if (!fechaLocal) return '';
+    if (fechaLocal.includes('-')) return fechaLocal; 
+    const partes = fechaLocal.split('/');
+    if (partes.length === 3) {
+        const dia = partes[0];
+        const mes = partes[1];
+        let anio = partes[2];
+        if (anio.length === 2) {
+            anio = `20${anio}`;
+        }
+        return `${anio}-${mes}-${dia}`;
+    }
+    return fechaLocal;
+};
 
 const FILTROS_RAPIDOS = [
     { label: 'Todos los lotes', value: 'todos' },
@@ -66,8 +92,8 @@ const recomendacionesLote = (lote) => {
 
     if (lote?.estado === 'caducado' || (dias !== null && dias < 0)) {
         return [
-            'No se recomienda consumo ni venta.',
-            'Separar el lote, revisar olor/color/textura y aplicar el protocolo sanitario del negocio.'
+            'LOTE BLOQUEADO. No se recomienda consumo ni venta.',
+            'Separar el lote del resto del inventario, revisar olor/color/textura y aplicar el protocolo de desecho sanitario del negocio.'
         ];
     }
 
@@ -80,14 +106,14 @@ const recomendacionesLote = (lote) => {
 
     if (dias !== null && dias <= 2) {
         return [
-            'Priorizar venta o consumo preferente.',
-            'Mantener refrigerado entre 0 °C y 4 °C y evitar exposición prolongada.'
+            'Priorizar venta o consumo preferente de inmediato.',
+            'Mantener refrigerado entre 0 °C y 4 °C y evitar exposición prolongada al ambiente.'
         ];
     }
 
     return [
         'Mantener refrigerado entre 0 °C y 4 °C.',
-        'Si no se venderá pronto, considerar congelación controlada y rotación PEPS.'
+        'Si no se venderá pronto, considerar congelación controlada y rotación PEPS (Primeras Entradas, Primeras Salidas).'
     ];
 };
 
@@ -96,8 +122,8 @@ const crearFormularioEdicion = (lote) => ({
         codigo_lote: String(lote?.codigo_lote || ''),
         tipo_corte: String(lote?.tipo_corte || ''),
         peso_kg: String(lote?.peso_kg || ''),
-        fecha_ingreso: String(lote?.fecha_ingreso || ''),
-        fecha_vencimiento: String(lote?.fecha_vencimiento || ''),
+        fecha_ingreso: formatearParaUI(String(lote?.fecha_ingreso || '')),
+        fecha_vencimiento: formatearParaUI(String(lote?.fecha_vencimiento || '')),
         estado: lote?.estado || 'activo'
     },
     animal: {
@@ -136,7 +162,10 @@ export default function MisLotes({ onVolver }) {
             if (idsSesion.idEmpleado) params.append('id_empleado', String(idsSesion.idEmpleado));
             if (filtroActivo.especie) params.append('especie', filtroActivo.especie);
             if (filtroActivo.estado) params.append('estado', filtroActivo.estado);
-            if (filtroActivo.tipo === 'fecha' && fechaIngreso.trim()) params.append('fecha_ingreso', fechaIngreso.trim());
+            
+            if (filtroActivo.tipo === 'fecha' && fechaIngreso.trim()) {
+                params.append('fecha_ingreso', formatearParaBD(fechaIngreso.trim()));
+            }
 
             const query = params.toString();
             const response = await fetch(`${API_BASE_URL}/lotes${query ? `?${query}` : ''}`);
@@ -202,14 +231,31 @@ export default function MisLotes({ onVolver }) {
     };
 
     const seleccionarFecha = (fecha) => {
-        if (calendarioActivo?.modo === 'filtro') setFechaIngreso(fecha);
-        if (calendarioActivo?.modo === 'edicion') actualizarForm('lote', calendarioActivo.campo, fecha);
+        const fechaUI = formatearParaUI(fecha);
+        if (calendarioActivo?.modo === 'filtro') setFechaIngreso(fechaUI);
+        if (calendarioActivo?.modo === 'edicion') actualizarForm('lote', calendarioActivo.campo, fechaUI);
         setCalendarioActivo(null);
     };
 
-    const cambiarEstado = async (lote, estado) => {
+    // --- LÓGICA DE ALERTA PARA CAMBIO DE ESTADO RÁPIDO ---
+    const confirmarCambioEstado = (lote, estado) => {
         if (lote.estado === estado) return;
 
+        if (estado === 'caducado') {
+            Alert.alert(
+                'Acción Irreversible',
+                '¿Estás seguro de marcar este lote como CADUCADO?\n\nPor protocolo de seguridad sanitaria, esta acción no se puede deshacer y el lote quedará bloqueado permanentemente.',
+                [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'Sí, marcar como caducado', style: 'destructive', onPress: () => ejecutarCambioEstado(lote, estado) }
+                ]
+            );
+        } else {
+            ejecutarCambioEstado(lote, estado);
+        }
+    };
+
+    const ejecutarCambioEstado = async (lote, estado) => {
         setGuardando(true);
         try {
             const response = await fetch(`${API_BASE_URL}/lotes`, {
@@ -224,7 +270,7 @@ export default function MisLotes({ onVolver }) {
             const result = await response.json();
 
             if (!response.ok || result.success === false) {
-                Alert.alert('Error', result.error || 'No se pudo actualizar el estado.');
+                Alert.alert('Bloqueo de Seguridad', result.error || 'No se pudo actualizar el estado.');
                 return;
             }
 
@@ -238,9 +284,25 @@ export default function MisLotes({ onVolver }) {
         }
     };
 
-    const guardarEdicion = async () => {
+    // --- LÓGICA DE ALERTA PARA GUARDAR EDICIÓN COMPLETA ---
+    const confirmarGuardarEdicion = () => {
         if (!loteSeleccionado) return;
 
+        if (formEdicion.lote.estado === 'caducado' && loteSeleccionado.estado !== 'caducado') {
+            Alert.alert(
+                'Acción Irreversible',
+                'Estás a punto de marcar este lote como CADUCADO.\n\nPor protocolo de seguridad sanitaria, el lote quedará bloqueado permanentemente tras guardar los cambios. ¿Deseas continuar?',
+                [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'Sí, caducar y guardar', style: 'destructive', onPress: ejecutarGuardarEdicion }
+                ]
+            );
+        } else {
+            ejecutarGuardarEdicion();
+        }
+    };
+
+    const ejecutarGuardarEdicion = async () => {
         setGuardando(true);
         try {
             const response = await fetch(`${API_BASE_URL}/lotes`, {
@@ -249,7 +311,11 @@ export default function MisLotes({ onVolver }) {
                 body: JSON.stringify({
                     id_lote: loteSeleccionado.id_lote,
                     id_usuario: idsSesion.idEmpleado || null,
-                    lote: formEdicion.lote,
+                    lote: {
+                        ...formEdicion.lote,
+                        fecha_ingreso: formatearParaBD(formEdicion.lote.fecha_ingreso),
+                        fecha_vencimiento: formatearParaBD(formEdicion.lote.fecha_vencimiento)
+                    },
                     animal: formEdicion.animal
                 })
             });
@@ -319,7 +385,7 @@ export default function MisLotes({ onVolver }) {
         <View style={styles.campo} key={campo}>
             <Text style={styles.label}>{label}</Text>
             <TouchableOpacity style={[styles.input, styles.inputFechaBoton]} onPress={() => abrirCalendarioEdicion(campo, label)}>
-                <Text style={styles.fechaBotonTexto}>{formEdicion.lote[campo] || 'Seleccionar fecha'}</Text>
+                <Text style={styles.fechaBotonTexto}>{formEdicion.lote[campo] || 'DD/MM/AAAA'}</Text>
                 <Ionicons name="calendar" size={18} color="#002855" />
             </TouchableOpacity>
         </View>
@@ -354,15 +420,15 @@ export default function MisLotes({ onVolver }) {
             style={styles.contenedor}
             contentContainerStyle={styles.contenido}
             showsVerticalScrollIndicator={false}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refrescar} />}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refrescar} tintColor={COLORS.azulMarino} />}
         >
             <TouchableOpacity style={styles.botonRegresarLink} onPress={onVolver}>
-                <Text style={styles.textoRegresarLink}>Volver al Panel Principal</Text>
+                <Text style={styles.textoRegresarLink}>← Volver al Panel Principal</Text>
             </TouchableOpacity>
 
             <View style={styles.encabezadoFila}>
                 <View style={{ flex: 1 }}>
-                    <Text style={styles.titulo}>Lotes registrados</Text>
+                    <Text style={styles.titulo}>Lotes Registrados</Text>
                     <Text style={styles.subtitulo}>Consulta lotes, estados y recomendaciones de conservación.</Text>
                 </View>
                 <TouchableOpacity style={styles.botonIcono} onPress={refrescar}>
@@ -371,7 +437,7 @@ export default function MisLotes({ onVolver }) {
             </View>
 
             <View style={styles.panelFiltros}>
-                <Text style={styles.filtroTitulo}>Filtro</Text>
+                <Text style={styles.filtroTitulo}>Filtro de Inventario</Text>
                 <TouchableOpacity style={styles.dropdownBoton} onPress={() => setDropdownAbierto(!dropdownAbierto)}>
                     <Text style={styles.dropdownTexto}>{filtroActivo.label}</Text>
                     <Ionicons name={dropdownAbierto ? 'chevron-up' : 'chevron-down'} size={18} color="#002855" />
@@ -390,7 +456,7 @@ export default function MisLotes({ onVolver }) {
 
                 {filtroActivo.tipo === 'fecha' && (
                     <TouchableOpacity style={[styles.inputFecha, styles.inputFechaBoton]} onPress={abrirCalendarioFiltro}>
-                        <Text style={[styles.fechaBotonTexto, !fechaIngreso && styles.fechaPlaceholder]}>{fechaIngreso || 'Seleccionar fecha'}</Text>
+                        <Text style={[styles.fechaBotonTexto, !fechaIngreso && styles.fechaPlaceholder]}>{fechaIngreso || 'DD/MM/AAAA'}</Text>
                         <Ionicons name="calendar" size={18} color="#002855" />
                     </TouchableOpacity>
                 )}
@@ -404,21 +470,21 @@ export default function MisLotes({ onVolver }) {
 
             {loading ? (
                 <View style={styles.estadoCentrado}>
-                    <ActivityIndicator color="#002855" />
+                    <ActivityIndicator color="#002855" size="large" />
                     <Text style={styles.estadoTexto}>Cargando lotes...</Text>
                 </View>
             ) : lotes.length === 0 ? (
                 <View style={styles.estadoVacio}>
-                    <Ionicons name="cube-outline" size={32} color="#94a3b8" />
-                    <Text style={styles.estadoTitulo}>Sin lotes registrados</Text>
+                    <Ionicons name="cube-outline" size={42} color="#cbd5e1" />
+                    <Text style={styles.estadoTitulo}>Sin lotes en esta categoría</Text>
                     <Text style={styles.estadoTexto}>Ajusta el filtro o registra un lote nuevo.</Text>
                 </View>
             ) : (
                 <View style={styles.tabla}>
                     <View style={[styles.tablaFila, styles.tablaHeader]}>
-                        <Text style={[styles.th, styles.colId]}>ID lote</Text>
-                        <Text style={[styles.th, styles.colFecha]}>Producción</Text>
-                        <Text style={[styles.th, styles.colFecha]}>Consumo pref.</Text>
+                        <Text style={[styles.th, styles.colId]}>Lote Int.</Text>
+                        <Text style={[styles.th, styles.colFecha]}>Prod.</Text>
+                        <Text style={[styles.th, styles.colFecha]}>Caduc.</Text>
                         <Text style={[styles.th, styles.colEstado]}>Estado</Text>
                     </View>
                     {lotes.map((lote) => {
@@ -426,8 +492,8 @@ export default function MisLotes({ onVolver }) {
                         return (
                             <TouchableOpacity key={String(lote.id_lote)} style={styles.tablaFila} onPress={() => setLoteSeleccionado(lote)}>
                                 <Text style={[styles.td, styles.colId]} numberOfLines={1}>{lote.codigo_lote}</Text>
-                                <Text style={[styles.td, styles.colFecha]}>{lote.fecha_ingreso}</Text>
-                                <Text style={[styles.td, styles.colFecha]}>{lote.fecha_vencimiento}</Text>
+                                <Text style={[styles.td, styles.colFecha]}>{formatearParaUI(lote.fecha_ingreso).substring(0, 5)}</Text>
+                                <Text style={[styles.td, styles.colFecha]}>{formatearParaUI(lote.fecha_vencimiento).substring(0, 5)}</Text>
                                 <View style={[styles.badgeEstado, styles.colEstado, { backgroundColor: estadoColor.fondo }]}>
                                     <Text style={[styles.badgeTexto, { color: estadoColor.texto }]}>{etiquetaEstado(lote.estado)}</Text>
                                 </View>
@@ -461,39 +527,57 @@ export default function MisLotes({ onVolver }) {
                             </View>
                             <Text style={styles.detalle}><Text style={styles.bold}>Especie:</Text> {loteSeleccionado.especie_nombre || nombreEspecie(loteSeleccionado.especie)}</Text>
                             <Text style={styles.detalle}><Text style={styles.bold}>Tipo de corte:</Text> {loteSeleccionado.tipo_corte}</Text>
-                            <Text style={styles.detalle}><Text style={styles.bold}>Peso:</Text> {loteSeleccionado.peso_kg} kg</Text>
-                            <Text style={styles.detalle}><Text style={styles.bold}>Fecha de producción:</Text> {loteSeleccionado.fecha_ingreso}</Text>
-                            <Text style={styles.detalle}><Text style={styles.bold}>Consumo preferente:</Text> {loteSeleccionado.fecha_vencimiento}</Text>
+                            <Text style={styles.detalle}><Text style={styles.bold}>Peso Inicial:</Text> {loteSeleccionado.peso_kg} kg</Text>
+                            <Text style={styles.detalle}><Text style={styles.bold}>Peso Actual:</Text> {loteSeleccionado.peso_actual} kg</Text>
+                            <Text style={styles.detalle}><Text style={styles.bold}>Fecha de producción:</Text> {formatearParaUI(loteSeleccionado.fecha_ingreso)}</Text>
+                            <Text style={styles.detalle}><Text style={styles.bold}>Consumo preferente:</Text> {formatearParaUI(loteSeleccionado.fecha_vencimiento)}</Text>
                             <Text style={styles.detalle}><Text style={styles.bold}>Arete:</Text> {loteSeleccionado.num_arete || 'N/D'}</Text>
                             <Text style={styles.detalle}><Text style={styles.bold}>Clasificación:</Text> {loteSeleccionado.clasificacion || 'N/D'}</Text>
-                            <Text style={styles.detalle}><Text style={styles.bold}>Guía:</Text> {loteSeleccionado.folio_guia || 'N/D'}</Text>
+                            <Text style={styles.detalle}><Text style={styles.bold}>Guía de tránsito:</Text> {loteSeleccionado.folio_guia || 'N/D'}</Text>
                         </View>
 
                         <View style={styles.detalleCard}>
-                            <Text style={styles.detalleTitulo}>Cambiar estado</Text>
-                            <View style={styles.opcionesFila}>
-                                {ESTADOS_LOTE_UI.map((estado) => {
-                                    const activo = loteSeleccionado.estado === estado.value;
-                                    return (
-                                        <TouchableOpacity key={estado.value} style={[styles.chipOpcion, activo && styles.chipOpcionActivo]} disabled={guardando} onPress={() => cambiarEstado(loteSeleccionado, estado.value)}>
-                                            <Text style={[styles.chipOpcionTexto, activo && styles.chipOpcionTextoActivo]}>{estado.label}</Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </View>
+                            <Text style={styles.detalleTitulo}>Gestión de Estado</Text>
+                            
+                            {loteSeleccionado.estado === 'caducado' ? (
+                                <View style={styles.cajaBloqueoSeguridad}>
+                                    <Ionicons name="lock-closed" size={18} color="#991b1b" style={{ marginRight: 8, marginTop: 2 }} />
+                                    <Text style={styles.textoBloqueoSeguridad}>
+                                        Por protocolo de seguridad sanitaria, este lote ha sido bloqueado y no puede reactivarse ni cambiar de estado.
+                                    </Text>
+                                </View>
+                            ) : (
+                                <View style={styles.opcionesFila}>
+                                    {ESTADOS_LOTE_UI.map((estado) => {
+                                        const activo = loteSeleccionado.estado === estado.value;
+                                        return (
+                                            <TouchableOpacity key={estado.value} style={[styles.chipOpcion, activo && styles.chipOpcionActivo]} disabled={guardando} onPress={() => confirmarCambioEstado(loteSeleccionado, estado.value)}>
+                                                <Text style={[styles.chipOpcionTexto, activo && styles.chipOpcionTextoActivo]}>{estado.label}</Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+                            )}
                         </View>
 
-                        <View style={styles.recomendacionCard}>
-                            <Text style={styles.detalleTitulo}>Recomendaciones</Text>
+                        <View style={[styles.recomendacionCard, loteSeleccionado.estado === 'caducado' && styles.recomendacionCardPeligro]}>
+                            <Text style={[styles.detalleTitulo, loteSeleccionado.estado === 'caducado' && { color: '#991b1b' }]}>
+                                {loteSeleccionado.estado === 'caducado' ? 'Protocolo de Desecho' : 'Recomendaciones'}
+                            </Text>
                             {recomendacionesLote(loteSeleccionado).map((texto, index) => (
-                                <Text key={String(index)} style={styles.recomendacion}>• {texto}</Text>
+                                <Text key={String(index)} style={[styles.recomendacion, loteSeleccionado.estado === 'caducado' && { color: '#7f1d1d' }]}>
+                                    • {texto}
+                                </Text>
                             ))}
                         </View>
 
-                        <TouchableOpacity style={styles.botonPrimario} onPress={() => abrirEdicion(loteSeleccionado)}>
-                            <Ionicons name="create" size={18} color={COLORS.blancoPuro} />
-                            <Text style={styles.textoBotonPrimario}>Editar lote</Text>
-                        </TouchableOpacity>
+                        {loteSeleccionado.estado !== 'caducado' && (
+                            <TouchableOpacity style={styles.botonPrimario} onPress={() => abrirEdicion(loteSeleccionado)}>
+                                <Ionicons name="create" size={18} color={COLORS.blancoPuro} />
+                                <Text style={styles.textoBotonPrimario}>Editar lote</Text>
+                            </TouchableOpacity>
+                        )}
+
                         <TouchableOpacity style={styles.botonEliminar} onPress={() => confirmarEliminar(loteSeleccionado)}>
                             <Ionicons name="trash" size={18} color={COLORS.rojoIntenso} />
                             <Text style={styles.textoBotonEliminar}>Eliminar lote</Text>
@@ -545,7 +629,7 @@ export default function MisLotes({ onVolver }) {
                         </TouchableOpacity>
                     </View>
 
-                    <TouchableOpacity style={[styles.botonPrimario, guardando && styles.botonDeshabilitado]} onPress={guardarEdicion} disabled={guardando}>
+                    <TouchableOpacity style={[styles.botonPrimario, guardando && styles.botonDeshabilitado]} onPress={confirmarGuardarEdicion} disabled={guardando}>
                         {guardando ? <ActivityIndicator color={COLORS.blancoPuro} /> : (
                             <>
                                 <Ionicons name="save" size={18} color={COLORS.blancoPuro} />
@@ -566,8 +650,9 @@ export default function MisLotes({ onVolver }) {
         </ScrollView>
     );
 }
+
 const styles = StyleSheet.create({
-    contenedor: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 16, paddingTop: 15 },
+    contenedor: { flex: 1, backgroundColor: '#f8fafc', paddingHorizontal: 16, paddingTop: 15 },
     contenido: { paddingBottom: 40 },
     botonRegresarLink: { marginVertical: 10 },
     textoRegresarLink: { color: COLORS.azulMarino, fontWeight: FONTS.bold, fontSize: 14 },
@@ -575,63 +660,66 @@ const styles = StyleSheet.create({
     titulo: { fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold, color: COLORS.azulMarino },
     subtitulo: { fontSize: 13, color: '#64748b', marginTop: 4 },
     botonIcono: { width: 40, height: 40, borderRadius: SIZES.radioBoton, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.blancoPuro },
-    panelFiltros: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioTarjeta, padding: 14, marginBottom: 14, backgroundColor: COLORS.blancoPuro },
+    panelFiltros: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioTarjeta, padding: 16, marginBottom: 20, backgroundColor: COLORS.blancoPuro, elevation: 1 },
     filtroTitulo: { fontSize: 15, fontWeight: FONTS.bold, color: '#0f172a', marginBottom: 10 },
-    dropdownBoton: { minHeight: 46, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f8fafc' },
+    dropdownBoton: { minHeight: 48, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f8fafc' },
     dropdownTexto: { color: '#0f172a', fontSize: 14, fontWeight: FONTS.bold },
-    dropdownLista: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioBoton, marginTop: 8, overflow: 'hidden', backgroundColor: COLORS.blancoPuro },
-    dropdownItem: { minHeight: 42, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+    dropdownLista: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioBoton, marginTop: 8, overflow: 'hidden', backgroundColor: COLORS.blancoPuro, elevation: 2 },
+    dropdownItem: { minHeight: 46, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
     dropdownItemTexto: { color: '#475569', fontSize: 14, fontWeight: '600' },
-    dropdownItemTextoActivo: { color: COLORS.azulMarino, fontWeight: FONTS.bold },
-    inputFecha: { marginTop: 10, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 12, paddingVertical: 10, color: '#0f172a' },
-    inputFechaBoton: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    dropdownItemTextoActivo: { color: COLORS.azulCeruleo, fontWeight: FONTS.bold },
+    inputFecha: { marginTop: 12, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 14, paddingVertical: 12, color: '#0f172a' },
+    inputFechaBoton: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     fechaBotonTexto: { color: '#0f172a', fontSize: 14, fontWeight: '600' },
     fechaPlaceholder: { color: '#94a3b8' },
-    botonLimpiar: { marginTop: 12, alignSelf: 'flex-start' },
-    textoLimpiar: { color: COLORS.azulMarino, fontWeight: FONTS.bold, fontSize: 13 },
-    estadoCentrado: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
-    estadoVacio: { alignItems: 'center', justifyContent: 'center', paddingVertical: 36, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioTarjeta, backgroundColor: '#f8fafc' },
-    estadoTitulo: { fontSize: 15, fontWeight: FONTS.bold, color: '#334155', marginTop: 10 },
-    estadoTexto: { fontSize: 13, color: '#64748b', marginTop: 6, textAlign: 'center' },
-    tabla: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, overflow: 'hidden', backgroundColor: COLORS.blancoPuro },
-    tablaFila: { minHeight: 48, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#f1f5f9', paddingHorizontal: 8 },
+    botonLimpiar: { marginTop: 14, alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 8, backgroundColor: '#f1f5f9', borderRadius: 6 },
+    textoLimpiar: { color: COLORS.azulMarino, fontWeight: FONTS.bold, fontSize: 12 },
+    estadoCentrado: { alignItems: 'center', justifyContent: 'center', paddingVertical: 50 },
+    estadoVacio: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioTarjeta, backgroundColor: '#f8fafc', borderStyle: 'dashed' },
+    estadoTitulo: { fontSize: 16, fontWeight: FONTS.bold, color: '#334155', marginTop: 12 },
+    estadoTexto: { fontSize: 14, color: '#64748b', marginTop: 6, textAlign: 'center', paddingHorizontal: 20 },
+    tabla: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, overflow: 'hidden', backgroundColor: COLORS.blancoPuro, elevation: 1 },
+    tablaFila: { minHeight: 52, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#f1f5f9', paddingHorizontal: 12 },
     tablaHeader: { backgroundColor: '#f8fafc' },
-    th: { color: '#475569', fontSize: 11, fontWeight: FONTS.bold },
-    td: { color: '#0f172a', fontSize: 12, fontWeight: '600' },
-    colId: { flex: 1.2, marginRight: 6 },
-    colFecha: { flex: 1, marginRight: 6 },
-    colEstado: { flex: 0.9 },
-    modalPantalla: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 18 },
+    th: { color: '#475569', fontSize: 12, fontWeight: FONTS.bold },
+    td: { color: '#0f172a', fontSize: 13, fontWeight: '600' },
+    colId: { flex: 1.4, marginRight: 6 },
+    colFecha: { flex: 0.9, marginRight: 6 },
+    colEstado: { flex: 1.2, alignItems: 'flex-start' },
+    modalPantalla: { flex: 1, backgroundColor: '#f8fafc', paddingHorizontal: 20, paddingTop: 18 },
     modalContenido: { paddingBottom: 36 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     modalTitulo: { color: COLORS.azulMarino, fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold },
-    modalSubtitulo: { color: '#64748b', fontSize: 13, marginTop: 3 },
-    detalleCard: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioTarjeta, padding: 14, marginBottom: 14, backgroundColor: COLORS.blancoPuro },
-    recomendacionCard: { borderWidth: 1, borderColor: '#bfdbfe', borderRadius: SIZES.radioTarjeta, padding: 14, marginBottom: 14, backgroundColor: '#eff6ff' },
-    detalleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-    detalleTitulo: { color: '#0f172a', fontSize: SIZES.tituloSeccion, fontWeight: FONTS.bold, marginBottom: 8 },
-    badgeEstado: { borderRadius: SIZES.radioBoton, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center' },
-    badgeTexto: { fontSize: 11, fontWeight: FONTS.bold },
-    detalle: { fontSize: 14, color: '#475569', lineHeight: 22 },
-    recomendacion: { fontSize: 13, color: '#1e3a8a', lineHeight: 20 },
-    bold: { fontWeight: FONTS.bold, color: '#1e293b' },
-    botonPrimario: { backgroundColor: COLORS.azulMarino, borderRadius: 9, minHeight: 50, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginBottom: 10 },
-    textoBotonPrimario: { color: COLORS.blancoPuro, fontSize: 15, fontWeight: FONTS.bold },
-    botonEliminar: { borderWidth: 1, borderColor: '#fecaca', backgroundColor: '#fff1f2', borderRadius: 9, minHeight: 50, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
-    textoBotonEliminar: { color: COLORS.rojoIntenso, fontSize: 15, fontWeight: FONTS.bold },
-    botonDeshabilitado: { backgroundColor: '#94a3b8' },
-    campo: { marginBottom: 12 },
-    label: { color: '#64748b', fontSize: 12, fontWeight: FONTS.bold, marginBottom: 6 },
-    input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 12, paddingVertical: 10, color: '#0f172a', fontSize: 14 },
-    opcionesFila: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    chipOpcion: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: COLORS.blancoPuro },
-    chipOpcionActivo: { borderColor: COLORS.azulMarino, backgroundColor: COLORS.azulMarino },
-    chipOpcionTexto: { color: '#475569', fontSize: 12, fontWeight: FONTS.bold },
+    modalSubtitulo: { color: '#64748b', fontSize: 14, marginTop: 4 },
+    detalleCard: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioTarjeta, padding: 18, marginBottom: 16, backgroundColor: COLORS.blancoPuro, elevation: 1 },
+    recomendacionCard: { borderWidth: 1, borderColor: '#bfdbfe', borderRadius: SIZES.radioTarjeta, padding: 18, marginBottom: 16, backgroundColor: '#eff6ff' },
+    recomendacionCardPeligro: { borderColor: '#fca5a5', backgroundColor: '#fef2f2' },
+    detalleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', paddingBottom: 10 },
+    detalleTitulo: { color: '#0f172a', fontSize: 16, fontWeight: FONTS.bold, marginBottom: 8 },
+    badgeEstado: { borderRadius: SIZES.radioBoton, paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center' },
+    badgeTexto: { fontSize: 12, fontWeight: FONTS.bold },
+    detalle: { fontSize: 14, color: '#475569', lineHeight: 24, marginBottom: 4 },
+    recomendacion: { fontSize: 14, color: '#1e3a8a', lineHeight: 22, marginBottom: 4 },
+    bold: { fontWeight: '800', color: '#1e293b' },
+    botonPrimario: { backgroundColor: COLORS.azulCeruleo, borderRadius: 10, minHeight: 54, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginBottom: 12, elevation: 2 },
+    textoBotonPrimario: { color: COLORS.blancoPuro, fontSize: 16, fontWeight: FONTS.bold },
+    botonEliminar: { borderWidth: 1, borderColor: '#fecaca', backgroundColor: '#fff1f2', borderRadius: 10, minHeight: 54, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+    textoBotonEliminar: { color: COLORS.textoOscuro, fontSize: 15, fontWeight: FONTS.bold },
+    botonDeshabilitado: { backgroundColor: '#94a3b8', elevation: 0 },
+    campo: { marginBottom: 14 },
+    label: { color: '#64748b', fontSize: 13, fontWeight: FONTS.bold, marginBottom: 6 },
+    input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 14, paddingVertical: 12, color: '#0f172a', fontSize: 15 },
+    opcionesFila: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    chipOpcion: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: COLORS.blancoPuro },
+    chipOpcionActivo: { borderColor: COLORS.azulMarino, backgroundColor: COLORS.azulCeruleo },
+    chipOpcionTexto: { color: '#475569', fontSize: 13, fontWeight: FONTS.bold },
     chipOpcionTextoActivo: { color: COLORS.blancoPuro },
-    especieBloqueada: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 12, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', gap: 8 },
-    especieTexto: { color: '#334155', fontSize: 14, fontWeight: FONTS.bold },
-    toggleFila: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
-    checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 1, borderColor: '#94a3b8', alignItems: 'center', justifyContent: 'center', marginRight: 10, backgroundColor: COLORS.blancoPuro },
+    especieBloqueada: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    especieTexto: { color: '#334155', fontSize: 15, fontWeight: FONTS.bold },
+    toggleFila: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, marginTop: 5 },
+    checkbox: { width: 26, height: 26, borderRadius: 6, borderWidth: 1, borderColor: '#94a3b8', alignItems: 'center', justifyContent: 'center', marginRight: 12, backgroundColor: COLORS.blancoPuro },
     checkboxActivo: { backgroundColor: COLORS.azulMarino, borderColor: COLORS.azulMarino },
-    toggleTexto: { color: '#334155', fontSize: 14, fontWeight: '600' }
+    toggleTexto: { color: '#334155', fontSize: 15, fontWeight: '600' },
+    cajaBloqueoSeguridad: { flexDirection: 'row', backgroundColor: '#fef2f2', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#fca5a5' },
+    textoBloqueoSeguridad: { flex: 1, color: '#991b1b', fontSize: 13, fontWeight: 'bold', lineHeight: 18 }
 });

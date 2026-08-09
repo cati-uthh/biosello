@@ -9,13 +9,11 @@ export default function EscanerQR({ navigation }) {
   const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   useEffect(() => {
-    // Verificamos el estado del permiso al cargar
     (async () => {
       const { status } = await Camera.getCameraPermissionsAsync();
       if (status === 'granted') {
          setHasPermission(true);
       } else {
-         // Si no tiene permiso, mostramos el modal que diseñaste
          setShowPermissionModal(true);
       }
     })();
@@ -29,7 +27,14 @@ export default function EscanerQR({ navigation }) {
 
   const handleBarCodeScanned = ({ type, data }) => {
     setScanned(true);
-    alert(`Código escaneado: ${data}`);
+    
+    // Extraemos el código limpio si es que viene de un enlace de BioSello
+    let idExtraido = data;
+    if (data.includes('id_lote=')) {
+        idExtraido = data.split('id_lote=')[1].split('&')[0];
+    }
+
+    navigation.navigate('IngresoManual', { codigoQR: idExtraido });
   };
 
   return (
@@ -38,7 +43,6 @@ export default function EscanerQR({ navigation }) {
         Coloque el código QR en el cuadro{'\n'}para escanear
       </Text>
 
-      {/* Contenedor del escáner con el marco visual */}
       <View style={styles.scannerWrapper}>
          {hasPermission ? (
             <CameraView
@@ -49,15 +53,14 @@ export default function EscanerQR({ navigation }) {
          ) : (
             <View style={styles.cameraPlaceholder} />
          )}
-         
-         
       </View>
 
       <Text style={styles.helpText}>¿No detecta el código QR?</Text>
       
+      {/* Botón manual mandando el parámetro vacío */}
       <TouchableOpacity 
         style={styles.manualButton} 
-        onPress={() => navigation.navigate('IngresoManual')}
+        onPress={() => navigation.navigate('IngresoManual', { codigoQR: '' })}
       >
         <Text style={styles.manualButtonText}>Ingresar manualmente</Text>
       </TouchableOpacity>
@@ -68,11 +71,11 @@ export default function EscanerQR({ navigation }) {
          </TouchableOpacity>
       )}
 
-      {/* Modal de Permisos (Imita el primer modal de tu diseño) */}
+      {/* Modal de Permisos */}
       <Modal visible={showPermissionModal} transparent={true} animationType="fade">
         <View style={styles.modalBackground}>
           <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Permisos de camara</Text>
+            <Text style={styles.modalTitle}>Permisos de cámara</Text>
             <Text style={styles.modalText}>Necesitamos acceder a tu cámara para poder escanear el código QR.</Text>
             <TouchableOpacity onPress={requestPermission}>
               <Text style={styles.modalActionText}>Aceptar</Text>
@@ -84,6 +87,7 @@ export default function EscanerQR({ navigation }) {
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.blancoPuro, alignItems: 'center', paddingTop: 40 },
   instructionText: { fontSize: SIZES.textoBase, textAlign: 'center', fontWeight: FONTS.bold, marginBottom: 30 },

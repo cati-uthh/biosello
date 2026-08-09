@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -7,9 +7,13 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
 
@@ -17,13 +21,61 @@ export default function ActInicioSesion({ navigation }) {
     const { setSesionActiva, setUsuario } = useContext(AuthContext);
     const [loading, setLoading] = useState(false);
     const [mostrarContrasena, setMostrarContrasena] = useState(false);
-    const [credenciales, setCredenciales] = useState({ email: '', contrasena: '' });
+    const [soportaBiometria, setSoportaBiometria] = useState(false);
+    
+    // Campo único para Correo electrónico o Número de teléfono
+    const [credenciales, setCredenciales] = useState({ identificador: '', contrasena: '' });
+
+    useEffect(() => {
+        comprobarBiometria();
+    }, []);
+
+    const comprobarBiometria = async () => {
+        try {
+            const compatible = await LocalAuthentication.hasHardwareAsync();
+            const registrado = await LocalAuthentication.isEnrolledAsync();
+            setSoportaBiometria(compatible && registrado);
+        } catch (e) {
+            setSoportaBiometria(false);
+        }
+    };
+
+    const autenticarConBiometria = async () => {
+        try {
+            const result = await LocalAuthentication.authenticateAsync({
+                promptMessage: 'Autenticación biométrica para bioSello',
+                fallbackLabel: 'Usar contraseña',
+            });
+
+            if (result.success) {
+                Alert.alert('Huella / Rostro reconocido', 'Inicia sesión con tus credenciales guardadas.');
+                // Aquí puedes integrar la recuperación de credenciales desde SecureStore si lo implementan más adelante
+            }
+        } catch (error) {
+            Alert.alert('Error', 'No se pudo validar la biometría.');
+        }
+    };
+
+    const validarEntradas = () => {
+        const idLimpio = credenciales.identificador.trim();
+        if (!idLimpio || !credenciales.contrasena) {
+            Alert.alert('Campos incompletos', 'Ingresa tu correo o teléfono y tu contraseña.');
+            return false;
+        }
+
+        const esEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(idLimpio);
+        const esTelefono = /^\d{10}$/.test(idLimpio);
+
+        if (!esEmail && !esTelefono) {
+            Alert.alert('Formato incorrecto', 'Ingresa un correo válido o un número de teléfono a 10 dígitos.');
+            return false;
+        }
+
+        return true;
+    };
 
     const manejarLogin = async () => {
-        if (!credenciales.email.trim() || !credenciales.contrasena) {
-            Alert.alert('Campos incompletos', 'Ingresa tu correo y contraseña para continuar.');
-            return;
-        }
+        if (!validarEntradas()) return;
 
         setLoading(true);
 
@@ -32,7 +84,7 @@ export default function ActInicioSesion({ navigation }) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    email: credenciales.email.trim().toLowerCase(),
+                    identificador: credenciales.identificador.trim().toLowerCase(),
                     contrasena: credenciales.contrasena
                 })
             });
@@ -54,61 +106,77 @@ export default function ActInicioSesion({ navigation }) {
                 }],
             });
         } catch (error) {
-            Alert.alert('Error de conexión', 'No se pudo conectar con el servidor. Revisa tu internet e intenta de nuevo.');
+            Alert.alert('Error de conexión', 'No se pudo conectar con el servidor. Revisa tu conexión a internet e intenta de nuevo.');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <View style={styles.container}>
-            <View style={styles.logoContainer}>
-                <Image source={require('./assets/logo-oficial.png')} style={styles.logo} resizeMode="contain" />
-            </View>
+        <KeyboardAvoidingView 
+            style={{ flex: 1 }} 
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+            <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+                <View style={styles.logoContainer}>
+                    <Image source={require('./assets/logo-oficial.png')} style={styles.logo} resizeMode="contain" />
+                </View>
 
-            <View style={styles.formContainer}>
-                <Text style={styles.label}>Correo electrónico</Text>
-                <TextInput
-                    style={styles.input}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    value={credenciales.email}
-                    onChangeText={(text) => setCredenciales((prev) => ({ ...prev, email: text }))}
-                />
-
-                <Text style={styles.label}>Contraseña</Text>
-                <View style={styles.passwordContainer}>
+                <View style={styles.formContainer}>
+                    <Text style={styles.label}>Correo electrónico o Teléfono</Text>
                     <TextInput
-                        style={styles.passwordInput}
-                        secureTextEntry={!mostrarContrasena}
-                        value={credenciales.contrasena}
-                        onChangeText={(text) => setCredenciales((prev) => ({ ...prev, contrasena: text }))}
+                        style={styles.input}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        maxLength={100}
+                        placeholder="ejemplo@correo.com o 10 dígitos"
+                        placeholderTextColor="#888"
+                        value={credenciales.identificador}
+                        onChangeText={(text) => setCredenciales((prev) => ({ ...prev, identificador: text }))}
                     />
-                    <TouchableOpacity style={styles.eyeIcon} onPress={() => setMostrarContrasena(!mostrarContrasena)}>
-                        <Ionicons name={mostrarContrasena ? 'eye-off' : 'eye'} size={24} color="gray" />
+
+                    <Text style={styles.label}>Contraseña</Text>
+                    <View style={styles.passwordContainer}>
+                        <TextInput
+                            style={styles.passwordInput}
+                            secureTextEntry={!mostrarContrasena}
+                            maxLength={128}
+                            value={credenciales.contrasena}
+                            onChangeText={(text) => setCredenciales((prev) => ({ ...prev, contrasena: text }))}
+                        />
+                        <TouchableOpacity style={styles.eyeIcon} onPress={() => setMostrarContrasena(!mostrarContrasena)}>
+                            <Ionicons name={mostrarContrasena ? 'eye-off' : 'eye'} size={24} color="gray" />
+                        </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity style={styles.mainButton} onPress={manejarLogin} disabled={loading}>
+                        {loading ? <ActivityIndicator color={COLORS.blancoPuro} /> : <Text style={styles.mainButtonText}>Iniciar sesión</Text>}
                     </TouchableOpacity>
-                </View>
 
-                <TouchableOpacity style={styles.mainButton} onPress={manejarLogin} disabled={loading}>
-                    {loading ? <ActivityIndicator color={COLORS.blancoPuro} /> : <Text style={styles.mainButtonText}>Entrar</Text>}
-                </TouchableOpacity>
+                    {soportaBiometria && (
+                        <TouchableOpacity style={styles.biometricButton} onPress={autenticarConBiometria}>
+                            <Ionicons name="finger-print-outline" size={26} color={COLORS.blancoPuro} />
+                            <Text style={styles.biometricText}>Ingresar con huella o biometría</Text>
+                        </TouchableOpacity>
+                    )}
 
-                <View style={styles.forgotContainer}>
-                    <Text style={styles.forgotText}>¿Olvidaste la contraseña?</Text>
-                    <Text style={styles.forgotText}>
-                        Usa la opción <Text style={styles.forgotLink}>Restablecer contraseña</Text> cuando esté disponible.
-                    </Text>
+                    <View style={styles.forgotContainer}>
+                        <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+                        <Text style={styles.subForgotText}>
+                            La opción de <Text style={styles.forgotLink}>Recuperar contraseña</Text> estará disponible próximamente.
+                        </Text>
+                    </View>
                 </View>
-            </View>
-        </View>
+            </ScrollView>
+        </KeyboardAvoidingView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.azulMarino, justifyContent: 'center' },
-    logoContainer: { alignItems: 'center', marginBottom: 35 },
-    logo: { width: 280, height: 100, marginBottom: 25 },
+    container: { flexGrow: 1, backgroundColor: COLORS.azulMarino, justifyContent: 'center', paddingVertical: 20 },
+    logoContainer: { alignItems: 'center', marginBottom: 25 },
+    logo: { width: 280, height: 100, marginBottom: 15 },
     formContainer: { paddingHorizontal: 40 },
     label: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, marginBottom: 5, fontWeight: FONTS.bold },
     input: { backgroundColor: COLORS.blancoPuro, borderRadius: SIZES.radioInput, padding: 12, marginBottom: 20, color: COLORS.textoOscuro, fontSize: SIZES.textoBase, height: 48 },
@@ -117,7 +185,10 @@ const styles = StyleSheet.create({
     eyeIcon: { padding: 10 },
     mainButton: { backgroundColor: COLORS.rojoIntenso, padding: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginTop: 10 },
     mainButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: SIZES.textoBase },
-    forgotContainer: { marginTop: 30, alignItems: 'center' },
-    forgotText: { color: COLORS.blancoPuro, fontSize: 15, lineHeight: 22, textAlign: 'center' },
-    forgotLink: { fontWeight: FONTS.bold, fontStyle: 'italic', textDecorationLine: 'underline' }
+    biometricButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 15, padding: 10, borderWidth: 1, borderColor: COLORS.azulCeruleo, borderRadius: SIZES.radioBoton, gap: 10 },
+    biometricText: { color: COLORS.blancoPuro, fontSize: SIZES.textoSecundario, fontWeight: FONTS.bold },
+    forgotContainer: { marginTop: 25, alignItems: 'center' },
+    forgotText: { color: COLORS.blancoPuro, fontSize: 15, fontWeight: FONTS.bold, textAlign: 'center' },
+    subForgotText: { color: '#cbd5e1', fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 4 },
+    forgotLink: { fontStyle: 'italic', textDecorationLine: 'underline' }
 });
