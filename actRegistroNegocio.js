@@ -7,13 +7,15 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
+    KeyboardAvoidingView,
+    Platform
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
 import { API_BASE_URL } from './src/utils/auth';
-
 
 const passwordRules = [
     { key: 'length', text: 'Mínimo 8 caracteres', test: (value) => value.length >= 8 },
@@ -39,24 +41,25 @@ export default function ActRegistroNegocio({ navigation }) {
 
     const [loading, setLoading] = useState(false);
     const [errores, setErrores] = useState({});
+    
+    const [mostrarContrasena, setMostrarContrasena] = useState(false);
+    const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
 
     const reglasContrasena = useMemo(() => passwordRules.map((rule) => ({
         ...rule,
         ok: rule.test(formData.contrasena)
     })), [formData.contrasena]);
 
+    const contrasenasCoinciden = formData.contrasena.length > 0 && formData.contrasena === formData.confirmarContrasena;
+
     const actualizarCampo = (campo, valor) => {
         setFormData((prev) => ({ ...prev, [campo]: valor }));
+        
+        if (campo === 'confirmarContrasena' || campo === 'contrasena') {
+            setErrores(prev => ({ ...prev, confirmarContrasena: null }));
+        }
     };
 
-    {/*// NOTA:
-    // Esta función esta compuesta de esta manera debido a que:
-    El motor web (Fetch/FileReader): Falla porque Android no permite usar herramientas de navegador web (ArrayBuffer) para leer archivos locales pesados por seguridad.
-    La caché (copyToCacheDirectory: true): Falla porque las nuevas políticas de "Scoped Storage" de Android bloquean a las aplicaciones de leer sus propias carpetas 
-    temporales si el archivo viene de afuera. El archivo original (copyToCacheDirectory: false): Falla porque devuelve un enlace content:// (un túnel seguro de Android), 
-    y la función readAsStringAsync es tan estricta que solo sabe leer enlaces que empiezan con file://. Se implementa la función de Expo llamada copyAsync. 
-    Esta función sí tiene los permisos de Android para entrar al túnel content://, tomar el archivo, y hacer una copia limpia dentro de la carpeta segura y privada 
-    de la propia aplicación (documentDirectory). Una vez que el archivo es "nuestro", lo leemos en Base64 sin que Android nos bloquee y luego lo borramos para no gastar memoria*/}
     const seleccionarDocumento = async () => {
         try {
             const result = await DocumentPicker.getDocumentAsync({
@@ -73,6 +76,7 @@ export default function ActRegistroNegocio({ navigation }) {
                 await FileSystem.deleteAsync(tempUri, { idempotent: true });
 
                 setFormData((prev) => ({ ...prev, archivoBase64: base64, nombreArchivo: file.name }));
+                setErrores((prev) => ({ ...prev, archivoBase64: null })); // Limpia el error al adjuntar
                 Alert.alert('Archivo adjunto', `"${file.name}" se adjuntó correctamente.`);
             }
         } catch (error) {
@@ -89,10 +93,12 @@ export default function ActRegistroNegocio({ navigation }) {
         if (!emailRegex.test(formData.email.trim())) nuevosErrores.email = 'Ingresa un correo válido.';
         if (!/^\d{10}$/.test(formData.telefono)) nuevosErrores.telefono = 'El teléfono debe tener 10 dígitos.';
         if (!reglasContrasena.every((rule) => rule.ok)) nuevosErrores.contrasena = 'La contraseña no cumple las reglas.';
-        if (formData.contrasena !== formData.confirmarContrasena) nuevosErrores.confirmarContrasena = 'Las contraseñas no coinciden.';
+        if (!contrasenasCoinciden) nuevosErrores.confirmarContrasena = 'Las contraseñas no coinciden.';
         if (!formData.nombre_negocio.trim()) nuevosErrores.nombre_negocio = 'El nombre comercial es obligatorio.';
         if (!formData.direccion.trim()) nuevosErrores.direccion = 'La dirección física es requerida.';
         if (!rfcRegex.test(formData.rfc.trim())) nuevosErrores.rfc = 'Ingresa un RFC válido con homoclave.';
+        
+        if (!formData.archivoBase64) nuevosErrores.archivoBase64 = 'Debes adjuntar tu Aviso COFEPRIS o SAT.';
 
         setErrores(nuevosErrores);
         return Object.keys(nuevosErrores).length === 0;
@@ -143,58 +149,156 @@ export default function ActRegistroNegocio({ navigation }) {
 
     return (
         <View style={styles.root}>
-            <ScrollView
-                style={styles.container}
-                contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
+            <KeyboardAvoidingView 
+                style={{ flex: 1 }} 
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-                <Text style={styles.title}>Registro de Carnicería</Text>
-                <Text style={styles.sectionTitle}>1. Datos del propietario</Text>
+                <ScrollView
+                    style={styles.container}
+                    contentContainerStyle={{ flexGrow: 1, paddingBottom: Platform.OS === 'android' ? 250 : 150 }} 
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <Text style={styles.title}>Registro de Carnicería</Text>
+                    <Text style={styles.sectionTitle}>1. Datos del propietario</Text>
 
-                <TextInput style={[styles.input, errores.nombre && styles.inputError]} placeholder="Nombre completo" placeholderTextColor="#888" value={formData.nombre} onChangeText={(text) => actualizarCampo('nombre', text)} />
-                {errores.nombre && <Text style={styles.errorText}>{errores.nombre}</Text>}
+                    <TextInput 
+                        style={[styles.input, errores.nombre && styles.inputError]} 
+                        placeholder="Nombre completo" 
+                        placeholderTextColor="#888" 
+                        maxLength={150}
+                        value={formData.nombre} 
+                        onChangeText={(text) => actualizarCampo('nombre', text)} 
+                    />
+                    {errores.nombre && <Text style={styles.errorText}>{errores.nombre}</Text>}
 
-                <TextInput style={[styles.input, errores.email && styles.inputError]} placeholder="Correo electrónico" placeholderTextColor="#888" keyboardType="email-address" autoCapitalize="none" value={formData.email} onChangeText={(text) => actualizarCampo('email', text)} />
-                {errores.email && <Text style={styles.errorText}>{errores.email}</Text>}
+                    <TextInput 
+                        style={[styles.input, errores.email && styles.inputError]} 
+                        placeholder="Correo electrónico" 
+                        placeholderTextColor="#888" 
+                        keyboardType="email-address" 
+                        autoCapitalize="none" 
+                        maxLength={100}
+                        value={formData.email} 
+                        onChangeText={(text) => actualizarCampo('email', text)} 
+                    />
+                    {errores.email && <Text style={styles.errorText}>{errores.email}</Text>}
 
-                <TextInput style={[styles.input, errores.telefono && styles.inputError]} placeholder="Teléfono celular (10 dígitos)" placeholderTextColor="#888" keyboardType="numeric" maxLength={10} value={formData.telefono} onChangeText={(text) => actualizarCampo('telefono', text.replace(/\D/g, ''))} />
-                {errores.telefono && <Text style={styles.errorText}>{errores.telefono}</Text>}
+                    <TextInput 
+                        style={[styles.input, errores.telefono && styles.inputError]} 
+                        placeholder="Teléfono celular (10 dígitos)" 
+                        placeholderTextColor="#888" 
+                        keyboardType="numeric" 
+                        maxLength={10} 
+                        value={formData.telefono} 
+                        onChangeText={(text) => actualizarCampo('telefono', text.replace(/\D/g, ''))} 
+                    />
+                    {errores.telefono && <Text style={styles.errorText}>{errores.telefono}</Text>}
 
-                <TextInput style={[styles.input, errores.contrasena && styles.inputError]} placeholder="Contraseña" placeholderTextColor="#888" secureTextEntry value={formData.contrasena} onChangeText={(text) => actualizarCampo('contrasena', text)} />
-                <View style={styles.passwordRules}>
-                    {reglasContrasena.map((rule) => (
-                        <Text key={rule.key} style={[styles.ruleText, rule.ok && styles.ruleOk]}>
-                            {rule.ok ? '✓' : '•'} {rule.text}
+                    <View style={styles.passwordContainer}>
+                        <TextInput 
+                            style={[styles.inputPassword, errores.contrasena && styles.inputError]} 
+                            placeholder="Contraseña" 
+                            placeholderTextColor="#888" 
+                            secureTextEntry={!mostrarContrasena} 
+                            value={formData.contrasena} 
+                            onChangeText={(text) => actualizarCampo('contrasena', text)} 
+                        />
+                        <TouchableOpacity 
+                            style={styles.eyeIcon} 
+                            onPress={() => setMostrarContrasena(!mostrarContrasena)}
+                        >
+                            <Ionicons 
+                                name={mostrarContrasena ? "eye-off-outline" : "eye-outline"} 
+                                size={22} 
+                                color="#888" 
+                            />
+                        </TouchableOpacity>
+                    </View>
+                    
+                    <View style={styles.passwordRules}>
+                        {reglasContrasena.map((rule) => (
+                            <Text key={rule.key} style={[styles.ruleText, rule.ok && styles.ruleOk]}>
+                                {rule.ok ? '✓' : '•'} {rule.text}
+                            </Text>
+                        ))}
+                    </View>
+                    {errores.contrasena && <Text style={styles.errorText}>{errores.contrasena}</Text>}
+
+                    <View style={styles.passwordContainer}>
+                        <TextInput 
+                            style={[styles.inputPassword, errores.confirmarContrasena && styles.inputError]} 
+                            placeholder="Confirmar contraseña" 
+                            placeholderTextColor="#888" 
+                            secureTextEntry={!mostrarConfirmacion} 
+                            value={formData.confirmarContrasena} 
+                            onChangeText={(text) => actualizarCampo('confirmarContrasena', text)} 
+                        />
+                        <TouchableOpacity 
+                            style={styles.eyeIcon} 
+                            onPress={() => setMostrarConfirmacion(!mostrarConfirmacion)}
+                        >
+                            <Ionicons 
+                                name={mostrarConfirmacion ? "eye-off-outline" : "eye-outline"} 
+                                size={22} 
+                                color="#888" 
+                            />
+                        </TouchableOpacity>
+                    </View>
+                    
+                    {errores.confirmarContrasena && <Text style={styles.errorText}>{errores.confirmarContrasena}</Text>}
+                    {contrasenasCoinciden && !errores.confirmarContrasena && (
+                        <Text style={styles.successText}>✓ Las contraseñas coinciden</Text>
+                    )}
+
+                    <Text style={styles.sectionTitle}>2. Datos del establecimiento</Text>
+
+                    <TextInput 
+                        style={[styles.input, errores.nombre_negocio && styles.inputError]} 
+                        placeholder="Nombre comercial de la carnicería" 
+                        placeholderTextColor="#888" 
+                        maxLength={150}
+                        value={formData.nombre_negocio} 
+                        onChangeText={(text) => actualizarCampo('nombre_negocio', text)} 
+                    />
+                    {errores.nombre_negocio && <Text style={styles.errorText}>{errores.nombre_negocio}</Text>}
+
+                    <TextInput 
+                        style={[styles.input, errores.direccion && styles.inputError]} 
+                        placeholder="Dirección física completa" 
+                        placeholderTextColor="#888" 
+                        maxLength={255}
+                        value={formData.direccion} 
+                        onChangeText={(text) => actualizarCampo('direccion', text)} 
+                    />
+                    {errores.direccion && <Text style={styles.errorText}>{errores.direccion}</Text>}
+
+                    <TextInput 
+                        style={[styles.input, errores.rfc && styles.inputError]} 
+                        placeholder="RFC con homoclave" 
+                        placeholderTextColor="#888" 
+                        autoCapitalize="characters" 
+                        maxLength={13} 
+                        value={formData.rfc} 
+                        onChangeText={(text) => actualizarCampo('rfc', text.toUpperCase())} 
+                    />
+                    {errores.rfc && <Text style={styles.errorText}>{errores.rfc}</Text>}
+
+                    <TouchableOpacity 
+                        style={[styles.uploadButton, formData.nombreArchivo ? styles.uploadButtonSuccess : (errores.archivoBase64 ? styles.inputError : null)]} 
+                        onPress={seleccionarDocumento}
+                    >
+                        <Text style={styles.uploadButtonText}>
+                            {formData.nombreArchivo ? `Adjunto: ${formData.nombreArchivo}` : 'Subir Aviso COFEPRIS o SAT (PDF/IMG)'}
                         </Text>
-                    ))}
-                </View>
-                {errores.contrasena && <Text style={styles.errorText}>{errores.contrasena}</Text>}
+                    </TouchableOpacity>
+                    {errores.archivoBase64 && <Text style={styles.errorText}>{errores.archivoBase64}</Text>}
 
-                <TextInput style={[styles.input, errores.confirmarContrasena && styles.inputError]} placeholder="Confirmar contraseña" placeholderTextColor="#888" secureTextEntry value={formData.confirmarContrasena} onChangeText={(text) => actualizarCampo('confirmarContrasena', text)} />
-                {errores.confirmarContrasena && <Text style={styles.errorText}>{errores.confirmarContrasena}</Text>}
-
-                <Text style={styles.sectionTitle}>2. Datos del establecimiento</Text>
-
-                <TextInput style={[styles.input, errores.nombre_negocio && styles.inputError]} placeholder="Nombre comercial de la carnicería" placeholderTextColor="#888" value={formData.nombre_negocio} onChangeText={(text) => actualizarCampo('nombre_negocio', text)} />
-                {errores.nombre_negocio && <Text style={styles.errorText}>{errores.nombre_negocio}</Text>}
-
-                <TextInput style={[styles.input, errores.direccion && styles.inputError]} placeholder="Dirección física completa" placeholderTextColor="#888" value={formData.direccion} onChangeText={(text) => actualizarCampo('direccion', text)} />
-                {errores.direccion && <Text style={styles.errorText}>{errores.direccion}</Text>}
-
-                <TextInput style={[styles.input, errores.rfc && styles.inputError]} placeholder="RFC con homoclave" placeholderTextColor="#888" autoCapitalize="characters" maxLength={13} value={formData.rfc} onChangeText={(text) => actualizarCampo('rfc', text.toUpperCase())} />
-                {errores.rfc && <Text style={styles.errorText}>{errores.rfc}</Text>}
-
-                <TouchableOpacity style={[styles.uploadButton, formData.nombreArchivo ? styles.uploadButtonSuccess : null]} onPress={seleccionarDocumento}>
-                    <Text style={styles.uploadButtonText}>
-                        {formData.nombreArchivo ? `Adjunto: ${formData.nombreArchivo}` : 'Subir Aviso COFEPRIS o SAT (PDF/IMG)'}
-                    </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={[styles.mainButton, loading && styles.botonDeshabilitado]} onPress={manejarRegistro} disabled={loading}>
-                    {loading ? <ActivityIndicator color={COLORS.blancoPuro} /> : <Text style={styles.mainButtonText}>Registrar mi Negocio</Text>}
-                </TouchableOpacity>
-            </ScrollView>
+                    <TouchableOpacity style={[styles.mainButton, loading && styles.botonDeshabilitado]} onPress={manejarRegistro} disabled={loading}>
+                        {loading ? <ActivityIndicator color={COLORS.blancoPuro} /> : <Text style={styles.mainButtonText}>Registrar mi Negocio</Text>}
+                    </TouchableOpacity>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </View>
     );
 }
@@ -204,15 +308,37 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.azulMarino, padding: 20 },
     title: { fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold, color: COLORS.blancoPuro, textAlign: 'center', marginVertical: 20 },
     sectionTitle: { fontSize: SIZES.tituloSeccion, color: COLORS.blancoPuro, marginTop: 15, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: COLORS.azulCeruleo, paddingBottom: 5 },
+    
     input: { backgroundColor: COLORS.blancoPuro, borderRadius: SIZES.radioInput, padding: 12, marginBottom: 10, color: COLORS.textoOscuro },
     inputError: { borderWidth: 2, borderColor: COLORS.amarilloAlerta },
     errorText: { color: COLORS.amarilloAlerta, fontSize: SIZES.textoSecundario, marginBottom: 10, marginTop: -5, marginLeft: 5 },
+    successText: { color: COLORS.exito, fontSize: SIZES.textoSecundario, marginBottom: 10, marginTop: -5, marginLeft: 5, fontWeight: FONTS.bold },
+    
+    passwordContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: COLORS.blancoPuro,
+        borderRadius: SIZES.radioInput,
+        marginBottom: 10,
+    },
+    inputPassword: {
+        flex: 1,
+        padding: 12,
+        color: COLORS.textoOscuro,
+        borderRadius: SIZES.radioInput, 
+    },
+    eyeIcon: {
+        padding: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+
     passwordRules: { marginTop: -2, marginBottom: 10 },
     ruleText: { color: '#cbd5e1', fontSize: SIZES.textoSecundario, lineHeight: 18 },
     ruleOk: { color: COLORS.exito, fontWeight: FONTS.bold },
     uploadButton: { backgroundColor: COLORS.azulCeruleo, padding: 12, borderRadius: SIZES.radioBoton, alignItems: 'center', marginBottom: 20, borderStyle: 'dashed', borderWidth: 1, borderColor: COLORS.blancoPuro },
     uploadButtonText: { color: COLORS.blancoPuro, fontWeight: '500' },
-    mainButton: { backgroundColor: COLORS.rojoIntenso, padding: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginTop: 10, marginBottom: 50 },
+    mainButton: { backgroundColor: COLORS.rojoIntenso, padding: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginTop: 10, marginBottom: 20 }, 
     botonDeshabilitado: { backgroundColor: '#94a3b8' },
     mainButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: SIZES.textoBase },
     uploadButtonSuccess: { borderColor: COLORS.exito, backgroundColor: '#064e3b' }

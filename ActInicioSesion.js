@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -7,34 +7,158 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
 import { API_BASE_URL, normalizarUsuarioSesion } from './src/utils/auth';
+
+const CLAVE_USUARIO_GUARDADO = 'biosello_usuario_identificador';
+const CLAVE_PASS_GUARDADA = 'biosello_usuario_pass';
+const CLAVE_BIOMETRIA_ACTIVADA = 'biosello_biometria_activada';
 
 export default function ActInicioSesion({ navigation }) {
     const { iniciarSesion } = useContext(AuthContext);
     const [loading, setLoading] = useState(false);
     const [mostrarContrasena, setMostrarContrasena] = useState(false);
-    const [credenciales, setCredenciales] = useState({ email: '', contrasena: '' });
+    const [mostrarBotonBiometrico, setMostrarBotonBiometrico] = useState(false);
+    const [idVinculado, setIdVinculado] = useState('');
+    
+    const [credenciales, setCredenciales] = useState({ identificador: '', contrasena: '' });
 
-    const manejarLogin = async () => {
-        if (!credenciales.email.trim() || !credenciales.contrasena) {
-            Alert.alert('Campos incompletos', 'Ingresa tu correo y contraseña para continuar.');
+    useEffect(() => {
+        verificarEstadoBiometrico();
+    }, []);
+
+    const verificarEstadoBiometrico = async () => {
+        try {
+            const compatible = await LocalAuthentication.hasHardwareAsync();
+            const registrado = await LocalAuthentication.isEnrolledAsync();
+            const biometriaActivada = await SecureStore.getItemAsync(CLAVE_BIOMETRIA_ACTIVADA);
+            const idGuardado = await SecureStore.getItemAsync(CLAVE_USUARIO_GUARDADO);
+
+            if (idGuardado) {
+                setIdVinculado(idGuardado);
+                setCredenciales(prev => ({ ...prev, identificador: idGuardado }));
+            }
+
+            // Solo mostramos la opción si el hardware es compatible, hay usuario guardado y EL USUARIO ACTIVÓ LA OPCIÓN
+            setMostrarBotonBiometrico(compatible && registrado && biometriaActivada === 'true' && Boolean(idGuardado));
+        } catch (e) {
+            setMostrarBotonBiometrico(false);
+        }
+    };
+
+    const autenticarConBiometria = async () => {
+        try {
+            const passGuardada = await SecureStore.getItemAsync(CLAVE_PASS_GUARDADA);
+
+            if (!passGuardada) {
+                Alert.alert('Acceso expirado', 'Por favor ingresa tu contraseña manualmente para renovar la biometría.');
+                return;
+            }
+
+            const result = await LocalAuthentication.authenticateAsync({
+                promptMessage: `Acceso biométrico para ${idVinculado}`,
+                fallbackLabel: 'Usar contraseña',
+            });
+
+            if (result.success) {
+                ejecutarPeticionLogin(idVinculado, passGuardada, false);
+            }
+        } catch (error) {
+            Alert.alert('Error', 'No se pudo procesar la autenticación biométrica.');
+        }
+    };
+
+    const validarEntradas = () => {
+        const idLimpio = credenciales.identificador.trim();
+        if (!idLimpio || !credenciales.contrasena) {
+            Alert.alert('Campos incompletos', 'Ingresa tu correo o teléfono y tu contraseña.');
+            return false;
+        }
+
+        const esEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(idLimpio);
+        const esTelefono = /^\d{10}$/.test(idLimpio);
+
+        if (!esEmail && !esTelefono) {
+            Alert.alert('Formato incorrecto', 'Ingresa un correo válido o un número de teléfono a 10 dígitos.');
+            return false;
+        }
+
+        return true;
+    };
+
+    const preguntarActivaciónBiometria = (idLimpio, contrasenaVal, datosUsuario) => {
+        LocalAuthentication.hasHardwareAsync().then(compatible => {
+            LocalAuthentication.isEnrolledAsync().then(registrado => {
+                if (compatible && registrado) {
+                    Alert.alert(
+                        'Acceso Rápido',
+                        '¿Deseas activar el inicio de sesión con huella o biometría para tus próximos ingresos?',
+                        [
+                            {
+                                text: 'No, gracias',
+                                style: 'cancel',
+                                onPress: async () => {
+                                    await SecureStore.setItemAsync(CLAVE_BIOMETRIA_ACTIVADA, 'false');
+                                    finalizarLogin(datosUsuario);
+                                }
+                            },
+                            {
+                                text: 'Sí, activar',
+                                onPress: async () => {
+                                    await SecureStore.setItemAsync(CLAVE_USUARIO_GUARDADO, idLimpio);
+                                    await SecureStore.setItemAsync(CLAVE_PASS_GUARDADA, contrasenaVal);
+                                    await SecureStore.setItemAsync(CLAVE_BIOMETRIA_ACTIVADA, 'true');
+                                    finalizarLogin(datosUsuario);
+                                }
+                            }
+                        ]
+                    );
+                } else {
+                    finalizarLogin(datosUsuario);
+                }
+            });
+        });
+    };
+
+    const finalizarLogin = (datosUsuario) => {
+        const usuarioSesion = normalizarUsuarioSesion(datosUsuario);
+        if (!usuarioSesion) {
+            Alert.alert('No se pudo iniciar sesión', 'El servidor no devolvió los datos de usuario.');
             return;
         }
 
+        iniciarSesion(usuarioSesion);
+        navigation.reset({
+            index: 0,
+            routes: [{
+                name: 'MainTabs',
+                state: { routes: [{ name: 'Inicio' }] }
+            }],
+        });
+    };
+
+    const ejecutarPeticionLogin = async (identificadorVal, contrasenaVal, esPrimerIngreso = true) => {
         setLoading(true);
 
         try {
+            const idLimpio = identificadorVal.trim().toLowerCase();
+
             const response = await fetch(`${API_BASE_URL}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    email: credenciales.email.trim().toLowerCase(),
-                    contrasena: credenciales.contrasena
+                    email: idLimpio,
+                    identificador: idLimpio,
+                    contrasena: contrasenaVal
                 })
             });
 
@@ -51,85 +175,114 @@ export default function ActInicioSesion({ navigation }) {
                 return;
             }
 
-            const usuarioSesion = normalizarUsuarioSesion(result);
-            if (!usuarioSesion) {
-                Alert.alert('No se pudo iniciar sesión', 'El servidor no devolvio los datos de usuario.');
+            const datosUsuario = normalizarUsuarioSesion(result);
+            if (!datosUsuario) {
+                Alert.alert('No se pudo iniciar sesión', 'El servidor no devolvió los datos de usuario.');
                 return;
             }
 
-            iniciarSesion(usuarioSesion);
-            navigation.reset({
-                index: 0,
-                routes: [{
-                    name: 'MainTabs',
-                    state: { routes: [{ name: 'Inicio' }] }
-                }],
-            });
+            if (esPrimerIngreso) {
+                // Verificamos si ya ha tomado una decisión de biometría previamente
+                const estadoPrevio = await SecureStore.getItemAsync(CLAVE_BIOMETRIA_ACTIVADA);
+                if (estadoPrevio === null) {
+                    preguntarActivaciónBiometria(idLimpio, contrasenaVal, datosUsuario);
+                } else {
+                    if (estadoPrevio === 'true') {
+                        await SecureStore.setItemAsync(CLAVE_USUARIO_GUARDADO, idLimpio);
+                        await SecureStore.setItemAsync(CLAVE_PASS_GUARDADA, contrasenaVal);
+                    }
+                    finalizarLogin(datosUsuario);
+                }
+            } else {
+                finalizarLogin(datosUsuario);
+            }
         } catch (error) {
-            Alert.alert('Error de conexión', 'No se pudo conectar con el servidor. Revisa tu internet e intenta de nuevo.');
+            Alert.alert('Error de conexión', 'No se pudo conectar con el servidor.');
         } finally {
             setLoading(false);
         }
     };
 
+    const manejarLogin = () => {
+        if (!validarEntradas()) return;
+        ejecutarPeticionLogin(credenciales.identificador, credenciales.contrasena, true);
+    };
+
     return (
-        <View style={styles.container}>
-            <View style={styles.logoContainer}>
-                <Image source={require('./assets/logo-oficial.png')} style={styles.logo} resizeMode="contain" />
-            </View>
+        <KeyboardAvoidingView 
+            style={{ flex: 1 }} 
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+            <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+                <View style={styles.logoContainer}>
+                    <Image source={require('./assets/logo-oficial.png')} style={styles.logo} resizeMode="contain" />
+                </View>
 
-            <View style={styles.formContainer}>
-                <Text style={styles.label}>Correo electrónico</Text>
-                <TextInput
-                    style={styles.input}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    value={credenciales.email}
-                    onChangeText={(text) => setCredenciales((prev) => ({ ...prev, email: text }))}
-                />
-
-                <Text style={styles.label}>Contraseña</Text>
-                <View style={styles.passwordContainer}>
+                <View style={styles.formContainer}>
+                    <Text style={styles.label}>Correo electrónico o Teléfono</Text>
                     <TextInput
-                        style={styles.passwordInput}
-                        secureTextEntry={!mostrarContrasena}
-                        value={credenciales.contrasena}
-                        onChangeText={(text) => setCredenciales((prev) => ({ ...prev, contrasena: text }))}
+                        style={styles.input}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        maxLength={100}
+                        placeholder="ejemplo@correo.com o 10 dígitos"
+                        placeholderTextColor="#888"
+                        value={credenciales.identificador}
+                        onChangeText={(text) => setCredenciales((prev) => ({ ...prev, identificador: text }))}
                     />
-                    <TouchableOpacity style={styles.eyeIcon} onPress={() => setMostrarContrasena(!mostrarContrasena)}>
-                        <Ionicons name={mostrarContrasena ? 'eye-off' : 'eye'} size={24} color="gray" />
+
+                    <Text style={styles.label}>Contraseña</Text>
+                    <View style={styles.passwordContainer}>
+                        <TextInput
+                            style={styles.passwordInput}
+                            secureTextEntry={!mostrarContrasena}
+                            maxLength={128}
+                            value={credenciales.contrasena}
+                            onChangeText={(text) => setCredenciales((prev) => ({ ...prev, contrasena: text }))}
+                        />
+                        <TouchableOpacity style={styles.eyeIcon} onPress={() => setMostrarContrasena(!mostrarContrasena)}>
+                            <Ionicons name={mostrarContrasena ? 'eye-off' : 'eye'} size={24} color="gray" />
+                        </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity style={styles.mainButton} onPress={manejarLogin} disabled={loading}>
+                        {loading ? <ActivityIndicator color={COLORS.blancoPuro} /> : <Text style={styles.mainButtonText}>Iniciar sesión</Text>}
                     </TouchableOpacity>
+
+                    {/* MOSTRADO ÚNICAMENTE SI EL USUARIO ACTIVÓ LA OPCIÓN */}
+                    {mostrarBotonBiometrico && (
+                        <TouchableOpacity style={styles.biometricButton} onPress={autenticarConBiometria} disabled={loading}>
+                            <Ionicons name="finger-print-outline" size={26} color={COLORS.blancoPuro} />
+                            <Text style={styles.biometricText}>Ingresar con huella o biometría</Text>
+                        </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('actRegistroUsuario')} disabled={loading}>
+                        <Ionicons name="person-add-outline" size={18} color={COLORS.blancoPuro} />
+                        <Text style={styles.secondaryButtonText}>Crear cuenta personal</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.linkButton} onPress={() => navigation.navigate('actRegistroNegocio')} disabled={loading}>
+                        <Text style={styles.linkButtonText}>Registrar negocio</Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.forgotContainer}>
+                        <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+                        <Text style={styles.subForgotText}>
+                            La opción de <Text style={styles.forgotLink}>Recuperar contraseña</Text> estará disponible próximamente.
+                        </Text>
+                    </View>
                 </View>
-
-                <TouchableOpacity style={styles.mainButton} onPress={manejarLogin} disabled={loading}>
-                    {loading ? <ActivityIndicator color={COLORS.blancoPuro} /> : <Text style={styles.mainButtonText}>Entrar</Text>}
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('actRegistroUsuario')} disabled={loading}>
-                    <Ionicons name="person-add-outline" size={18} color={COLORS.blancoPuro} />
-                    <Text style={styles.secondaryButtonText}>Crear cuenta personal</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.linkButton} onPress={() => navigation.navigate('actRegistroNegocio')} disabled={loading}>
-                    <Text style={styles.linkButtonText}>Registrar negocio</Text>
-                </TouchableOpacity>
-
-                <View style={styles.forgotContainer}>
-                    <Text style={styles.forgotText}>¿Olvidaste la contraseña?</Text>
-                    <Text style={styles.forgotText}>
-                        Usa la opción <Text style={styles.forgotLink}>Restablecer contraseña</Text> cuando esté disponible.
-                    </Text>
-                </View>
-            </View>
-        </View>
+            </ScrollView>
+        </KeyboardAvoidingView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.azulMarino, justifyContent: 'center' },
-    logoContainer: { alignItems: 'center', marginBottom: 35 },
-    logo: { width: 280, height: 100, marginBottom: 25 },
+    container: { flexGrow: 1, backgroundColor: COLORS.azulMarino, justifyContent: 'center', paddingVertical: 20 },
+    logoContainer: { alignItems: 'center', marginBottom: 25 },
+    logo: { width: 280, height: 100, marginBottom: 15 },
     formContainer: { paddingHorizontal: 40 },
     label: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, marginBottom: 5, fontWeight: FONTS.bold },
     input: { backgroundColor: COLORS.blancoPuro, borderRadius: SIZES.radioInput, padding: 12, marginBottom: 20, color: COLORS.textoOscuro, fontSize: SIZES.textoBase, height: 48 },
@@ -138,11 +291,14 @@ const styles = StyleSheet.create({
     eyeIcon: { padding: 10 },
     mainButton: { backgroundColor: COLORS.rojoIntenso, padding: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginTop: 10 },
     mainButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: SIZES.textoBase },
+    biometricButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 15, padding: 10, borderWidth: 1, borderColor: COLORS.azulCeruleo, borderRadius: SIZES.radioBoton, gap: 10 },
+    biometricText: { color: COLORS.blancoPuro, fontSize: SIZES.textoSecundario, fontWeight: FONTS.bold },
     secondaryButton: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.65)', borderRadius: SIZES.radioBoton, minHeight: 48, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 12 },
     secondaryButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: 15 },
     linkButton: { alignItems: 'center', paddingVertical: 12 },
     linkButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, textDecorationLine: 'underline' },
-    forgotContainer: { marginTop: 30, alignItems: 'center' },
-    forgotText: { color: COLORS.blancoPuro, fontSize: 15, lineHeight: 22, textAlign: 'center' },
-    forgotLink: { fontWeight: FONTS.bold, fontStyle: 'italic', textDecorationLine: 'underline' }
+    forgotContainer: { marginTop: 25, alignItems: 'center' },
+    forgotText: { color: COLORS.blancoPuro, fontSize: 15, fontWeight: FONTS.bold, textAlign: 'center' },
+    subForgotText: { color: '#cbd5e1', fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 4 },
+    forgotLink: { fontStyle: 'italic', textDecorationLine: 'underline' }
 });
