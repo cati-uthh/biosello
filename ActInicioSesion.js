@@ -14,45 +14,65 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
+
+const CLAVE_USUARIO_GUARDADO = 'biosello_usuario_identificador';
+const CLAVE_PASS_GUARDADA = 'biosello_usuario_pass';
+const CLAVE_BIOMETRIA_ACTIVADA = 'biosello_biometria_activada';
 
 export default function ActInicioSesion({ navigation }) {
     const { setSesionActiva, setUsuario } = useContext(AuthContext);
     const [loading, setLoading] = useState(false);
     const [mostrarContrasena, setMostrarContrasena] = useState(false);
-    const [soportaBiometria, setSoportaBiometria] = useState(false);
+    const [mostrarBotonBiometrico, setMostrarBotonBiometrico] = useState(false);
+    const [idVinculado, setIdVinculado] = useState('');
     
-    // Campo único para Correo electrónico o Número de teléfono
     const [credenciales, setCredenciales] = useState({ identificador: '', contrasena: '' });
 
     useEffect(() => {
-        comprobarBiometria();
+        verificarEstadoBiometrico();
     }, []);
 
-    const comprobarBiometria = async () => {
+    const verificarEstadoBiometrico = async () => {
         try {
             const compatible = await LocalAuthentication.hasHardwareAsync();
             const registrado = await LocalAuthentication.isEnrolledAsync();
-            setSoportaBiometria(compatible && registrado);
+            const biometriaActivada = await SecureStore.getItemAsync(CLAVE_BIOMETRIA_ACTIVADA);
+            const idGuardado = await SecureStore.getItemAsync(CLAVE_USUARIO_GUARDADO);
+
+            if (idGuardado) {
+                setIdVinculado(idGuardado);
+                setCredenciales(prev => ({ ...prev, identificador: idGuardado }));
+            }
+
+            // Solo mostramos la opción si el hardware es compatible, hay usuario guardado y EL USUARIO ACTIVÓ LA OPCIÓN
+            setMostrarBotonBiometrico(compatible && registrado && biometriaActivada === 'true' && Boolean(idGuardado));
         } catch (e) {
-            setSoportaBiometria(false);
+            setMostrarBotonBiometrico(false);
         }
     };
 
     const autenticarConBiometria = async () => {
         try {
+            const passGuardada = await SecureStore.getItemAsync(CLAVE_PASS_GUARDADA);
+
+            if (!passGuardada) {
+                Alert.alert('Acceso expirado', 'Por favor ingresa tu contraseña manualmente para renovar la biometría.');
+                return;
+            }
+
             const result = await LocalAuthentication.authenticateAsync({
-                promptMessage: 'Autenticación biométrica para bioSello',
+                promptMessage: `Acceso biométrico para ${idVinculado}`,
                 fallbackLabel: 'Usar contraseña',
             });
 
             if (result.success) {
-                Alert.alert('Huella / Rostro reconocido', 'Inicia sesión con tus credenciales guardadas.');
-                // Aquí puedes integrar la recuperación de credenciales desde SecureStore si lo implementan más adelante
+                ejecutarPeticionLogin(idVinculado, passGuardada, false);
             }
         } catch (error) {
-            Alert.alert('Error', 'No se pudo validar la biometría.');
+            Alert.alert('Error', 'No se pudo procesar la autenticación biométrica.');
         }
     };
 
@@ -74,18 +94,65 @@ export default function ActInicioSesion({ navigation }) {
         return true;
     };
 
-    const manejarLogin = async () => {
-        if (!validarEntradas()) return;
+    const preguntarActivaciónBiometria = (idLimpio, contrasenaVal, datosUsuario) => {
+        LocalAuthentication.hasHardwareAsync().then(compatible => {
+            LocalAuthentication.isEnrolledAsync().then(registrado => {
+                if (compatible && registrado) {
+                    Alert.alert(
+                        'Acceso Rápido',
+                        '¿Deseas activar el inicio de sesión con huella o biometría para tus próximos ingresos?',
+                        [
+                            {
+                                text: 'No, gracias',
+                                style: 'cancel',
+                                onPress: async () => {
+                                    await SecureStore.setItemAsync(CLAVE_BIOMETRIA_ACTIVADA, 'false');
+                                    finalizarLogin(datosUsuario);
+                                }
+                            },
+                            {
+                                text: 'Sí, activar',
+                                onPress: async () => {
+                                    await SecureStore.setItemAsync(CLAVE_USUARIO_GUARDADO, idLimpio);
+                                    await SecureStore.setItemAsync(CLAVE_PASS_GUARDADA, contrasenaVal);
+                                    await SecureStore.setItemAsync(CLAVE_BIOMETRIA_ACTIVADA, 'true');
+                                    finalizarLogin(datosUsuario);
+                                }
+                            }
+                        ]
+                    );
+                } else {
+                    finalizarLogin(datosUsuario);
+                }
+            });
+        });
+    };
 
+    const finalizarLogin = (datosUsuario) => {
+        setSesionActiva(true);
+        setUsuario(datosUsuario);
+        navigation.reset({
+            index: 0,
+            routes: [{
+                name: 'MainTabs',
+                state: { routes: [{ name: 'Inicio' }] }
+            }],
+        });
+    };
+
+    const ejecutarPeticionLogin = async (identificadorVal, contrasenaVal, esPrimerIngreso = true) => {
         setLoading(true);
 
         try {
+            const idLimpio = identificadorVal.trim().toLowerCase();
+
             const response = await fetch('https://biosello-backend.vercel.app/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    identificador: credenciales.identificador.trim().toLowerCase(),
-                    contrasena: credenciales.contrasena
+                    email: idLimpio,
+                    identificador: idLimpio,
+                    contrasena: contrasenaVal
                 })
             });
 
@@ -96,20 +163,33 @@ export default function ActInicioSesion({ navigation }) {
                 return;
             }
 
-            setSesionActiva(true);
-            setUsuario(result.usuario || result.user || result.data || null);
-            navigation.reset({
-                index: 0,
-                routes: [{
-                    name: 'MainTabs',
-                    state: { routes: [{ name: 'Inicio' }] }
-                }],
-            });
+            const datosUsuario = result.usuario || result.user || result.data || null;
+
+            if (esPrimerIngreso) {
+                // Verificamos si ya ha tomado una decisión de biometría previamente
+                const estadoPrevio = await SecureStore.getItemAsync(CLAVE_BIOMETRIA_ACTIVADA);
+                if (estadoPrevio === null) {
+                    preguntarActivaciónBiometria(idLimpio, contrasenaVal, datosUsuario);
+                } else {
+                    if (estadoPrevio === 'true') {
+                        await SecureStore.setItemAsync(CLAVE_USUARIO_GUARDADO, idLimpio);
+                        await SecureStore.setItemAsync(CLAVE_PASS_GUARDADA, contrasenaVal);
+                    }
+                    finalizarLogin(datosUsuario);
+                }
+            } else {
+                finalizarLogin(datosUsuario);
+            }
         } catch (error) {
-            Alert.alert('Error de conexión', 'No se pudo conectar con el servidor. Revisa tu conexión a internet e intenta de nuevo.');
+            Alert.alert('Error de conexión', 'No se pudo conectar con el servidor.');
         } finally {
             setLoading(false);
         }
+    };
+
+    const manejarLogin = () => {
+        if (!validarEntradas()) return;
+        ejecutarPeticionLogin(credenciales.identificador, credenciales.contrasena, true);
     };
 
     return (
@@ -154,8 +234,9 @@ export default function ActInicioSesion({ navigation }) {
                         {loading ? <ActivityIndicator color={COLORS.blancoPuro} /> : <Text style={styles.mainButtonText}>Iniciar sesión</Text>}
                     </TouchableOpacity>
 
-                    {soportaBiometria && (
-                        <TouchableOpacity style={styles.biometricButton} onPress={autenticarConBiometria}>
+                    {/* MOSTRADO ÚNICAMENTE SI EL USUARIO ACTIVÓ LA OPCIÓN */}
+                    {mostrarBotonBiometrico && (
+                        <TouchableOpacity style={styles.biometricButton} onPress={autenticarConBiometria} disabled={loading}>
                             <Ionicons name="finger-print-outline" size={26} color={COLORS.blancoPuro} />
                             <Text style={styles.biometricText}>Ingresar con huella o biometría</Text>
                         </TouchableOpacity>

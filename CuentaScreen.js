@@ -4,16 +4,20 @@ import {
   Alert,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
 
 const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
+const CLAVE_BIOMETRIA_ACTIVADA = 'biosello_biometria_activada';
 
 export default function CuentaScreen({ navigation }) {
   const { sesionActiva, usuario, setUsuario, setSesionActiva } = useContext(AuthContext);
@@ -21,7 +25,10 @@ export default function CuentaScreen({ navigation }) {
   const [guardando, setGuardando] = useState(false);
   const [perfil, setPerfil] = useState(null);
   
-  // Estado del formulario
+  // Estado para la opción de Biometría en Perfil
+  const [biometriaHabilitada, setBiometriaHabilitada] = useState(false);
+  const [dispositivoSoportaBiometria, setDispositivoSoportaBiometria] = useState(false);
+
   const [form, setForm] = useState({
     nombre: '',
     email: '', 
@@ -30,82 +37,107 @@ export default function CuentaScreen({ navigation }) {
     municipio: '',
     direccion: '',
     rfc: '',
-    perfil: '' // Se mantiene para mostrar en UI, pero no se enviará en el PUT
+    perfil: ''
   });
 
   const idUsuario = usuario?.id_usuario || usuario?.id;
 
   useEffect(() => {
-    const cargarPerfil = async () => {
-      if (!idUsuario) {
-        setLoading(false);
+    cargarPerfil();
+    comprobarConfiguracionBiometrica();
+  }, [idUsuario]);
+
+  const comprobarConfiguracionBiometrica = async () => {
+    try {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const registrado = await LocalAuthentication.isEnrolledAsync();
+      const estado = await SecureStore.getItemAsync(CLAVE_BIOMETRIA_ACTIVADA);
+
+      setDispositivoSoportaBiometria(compatible && registrado);
+      setBiometriaHabilitada(estado === 'true');
+    } catch (e) {
+      setDispositivoSoportaBiometria(false);
+    }
+  };
+
+  const alternarBiometria = async (valor) => {
+    if (valor) {
+      const auth = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Confirma tu huella para activar el acceso biométrico',
+        fallbackLabel: 'Cancelar'
+      });
+
+      if (auth.success) {
+        await SecureStore.setItemAsync(CLAVE_BIOMETRIA_ACTIVADA, 'true');
+        setBiometriaHabilitada(true);
+        Alert.alert('Biometría Activada', 'Ahora podrás ingresar rápidamente desde la pantalla de inicio de sesión.');
+      }
+    } else {
+      await SecureStore.setItemAsync(CLAVE_BIOMETRIA_ACTIVADA, 'false');
+      setBiometriaHabilitada(false);
+      Alert.alert('Biometría Desactivada', 'Se ha retirado la opción de acceso por huella para tu cuenta.');
+    }
+  };
+
+  const cargarPerfil = async () => {
+    if (!idUsuario) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/perfil?id_usuario=${idUsuario}`);
+      const result = await response.json();
+
+      if (!response.ok || result.success === false) {
+        Alert.alert('No se pudo cargar la cuenta', result.error || 'Intenta de nuevo más tarde.');
         return;
       }
 
-      try {
-        const response = await fetch(`${API_BASE_URL}/perfil?id_usuario=${idUsuario}`);
-        const result = await response.json();
-
-        if (!response.ok || result.success === false) {
-          Alert.alert('No se pudo cargar la cuenta', result.error || 'Intenta de nuevo más tarde.');
-          return;
-        }
-
-        const data = result.data || {};
-        setPerfil(data);
-        setForm({
-          nombre: data.nombre || '',
-          email: data.email || '',
-          telefono: data.telefono || '',
-          nombre_negocio: data.nombre_negocio || '',
-          municipio: data.municipio || '',
-          direccion: data.direccion || '',
-          rfc: data.rfc || '',
-          perfil: data.perfil || ''
-        });
-      } catch (error) {
-        Alert.alert('Error de conexión', 'No se pudo conectar con el servidor.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    cargarPerfil();
-  }, [idUsuario]);
+      const data = result.data || {};
+      setPerfil(data);
+      setForm({
+        nombre: data.nombre || '',
+        email: data.email || '',
+        telefono: data.telefono || '',
+        nombre_negocio: data.nombre_negocio || '',
+        municipio: data.municipio || '',
+        direccion: data.direccion || '',
+        rfc: data.rfc || '',
+        perfil: data.perfil || ''
+      });
+    } catch (error) {
+      Alert.alert('Error de conexión', 'No se pudo conectar con el servidor.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const actualizar = (campo, valor) => {
     setForm((prev) => ({ ...prev, [campo]: valor }));
   };
 
-  /**
-   * Función para validar los datos antes de enviarlos al servidor.
-   * Retorna un string con el error si falla, o null si todo es correcto.
-   */
   const validarFormulario = () => {
     if (!form.nombre.trim()) return "El nombre es un campo obligatorio.";
     if (!form.email.trim()) return "El correo electrónico es obligatorio.";
     
-    // Validación de formato de correo usando Expresiones Regulares (Regex)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(form.email)) return "Ingresa un formato de correo electrónico válido.";
     
-    // Validación de teléfono (mínimo 10 dígitos si se proporciona)
     if (form.telefono && form.telefono.trim().length < 10) {
       return "El número de teléfono debe tener al menos 10 dígitos.";
     }
 
-    // Validación de RFC (12 caracteres para morales, 13 para físicas)
     if (form.rfc && (form.rfc.trim().length < 12 || form.rfc.trim().length > 13)) {
       return "El RFC debe tener entre 12 y 13 caracteres.";
     }
 
-    return null; // Pasa todas las validaciones
+    return null;
   };
 
   const guardarCambios = async () => {
     if (!idUsuario) return;
 
-    // Ejecutar validaciones del lado del cliente
     const errorValidacion = validarFormulario();
     if (errorValidacion) {
       Alert.alert('Revisa tus datos', errorValidacion);
@@ -114,12 +146,6 @@ export default function CuentaScreen({ navigation }) {
 
     setGuardando(true);
     try {
-      /**
-       * SANITIZACIÓN DE DATOS (Prevención de escalada de privilegios):
-       * Construimos un payload estricto. Excluimos intencionalmente campos sensibles 
-       * como 'perfil' o 'estatus_verificacion' para evitar que un usuario manipule 
-       * la petición e intente cambiar su nivel de acceso en la base de datos.
-       */
       const payload = {
         id_usuario: idUsuario,
         nombre: form.nombre.trim(),
@@ -128,7 +154,7 @@ export default function CuentaScreen({ navigation }) {
         nombre_negocio: form.nombre_negocio.trim(),
         municipio: form.municipio.trim(),
         direccion: form.direccion.trim(),
-        rfc: form.rfc.trim().toUpperCase() // Estandarizamos RFC a mayúsculas
+        rfc: form.rfc.trim().toUpperCase()
       };
 
       const response = await fetch(`${API_BASE_URL}/perfil`, {
@@ -191,7 +217,6 @@ export default function CuentaScreen({ navigation }) {
     );
   }
 
-  // VISTA CUANDO EL USUARIO NO TIENE SESIÓN ACTIVA (ESTILIZADA)
   if (!sesionActiva || !idUsuario) {
     return (
       <View style={styles.sesionVacia}>
@@ -220,7 +245,6 @@ export default function CuentaScreen({ navigation }) {
     );
   }
 
-  // VISTA PRINCIPAL CON SESIÓN ACTIVA
   return (
     <ScrollView style={styles.contenedor} contentContainerStyle={styles.contenido} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
@@ -236,18 +260,32 @@ export default function CuentaScreen({ navigation }) {
       <View style={styles.card}>
         <Text style={styles.cardTitulo}>Datos de Usuario</Text>
         {renderCampo({ label: 'Nombre completo', campo: 'nombre' })}
-        {renderCampo({ label: 'Correo electrónico', campo: 'email', keyboardType: 'email-address', editable:false })}
+        {renderCampo({ label: 'Correo electrónico', campo: 'email', keyboardType: 'email-address', editable: false })}
         {renderCampo({ label: 'Teléfono', campo: 'telefono', keyboardType: 'phone-pad' })}
         {renderCampo({ label: 'Perfil de acceso', campo: 'perfil', editable: false })}
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitulo}>Datos del Negocio</Text>
-        {renderCampo({ label: 'Nombre comercial', campo: 'nombre_negocio' })}
-        {renderCampo({ label: 'Municipio', campo: 'municipio' })}
-        {renderCampo({ label: 'Dirección', campo: 'direccion' })}
-        {renderCampo({ label: 'RFC', campo: 'rfc', autoCapitalize: 'characters' })}
-      </View>
+      {/* SECCIÓN SEGURIDAD: CONTROL DE BIOMETRÍA */}
+      {dispositivoSoportaBiometria && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitulo}>Seguridad y Acceso</Text>
+          <View style={styles.filaFilaSwitch}>
+            <View style={{ flex: 1, paddingRight: 10 }}>
+              <Text style={styles.labelSwitch}>Acceso por Huella Digital / Rostro</Text>
+              <Text style={styles.subtextoSwitch}>
+                Permite iniciar sesión rápidamente sin escribir la contraseña.
+              </Text>
+            </View>
+            <Switch
+              value={biometriaHabilitada}
+              onValueChange={alternarBiometria}
+              trackColor={{ false: '#cbd5e1', true: COLORS.azulCeruleo }}
+              thumbColor={biometriaHabilitada ? COLORS.azulMarino : '#f4f3f4'}
+            />
+          </View>
+        </View>
+      )}
+
 
       <TouchableOpacity style={[styles.botonGuardar, guardando && styles.botonDeshabilitado]} onPress={guardarCambios} disabled={guardando}>
         {guardando ? <ActivityIndicator color={COLORS.blancoPuro} /> : <Text style={styles.textoGuardar}>Guardar cambios</Text>}
@@ -262,7 +300,6 @@ export default function CuentaScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-    // --- ESTILOS GENERALES Y CON SESIÓN ---
     contenedor: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 18 },
     contenido: { paddingBottom: 40 },
     cargando: { flex: 1, backgroundColor: COLORS.blancoPuro, alignItems: 'center', justifyContent: 'center' },
@@ -281,6 +318,10 @@ const styles = StyleSheet.create({
     input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 14, paddingVertical: 12, color: '#0f172a', fontSize: 15 },
     inputBloqueado: { color: '#94a3b8', backgroundColor: '#f1f5f9', borderColor: '#e2e8f0' },
     
+    filaFilaSwitch: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    labelSwitch: { color: '#0f172a', fontSize: 14, fontWeight: FONTS.bold },
+    subtextoSwitch: { color: '#64748b', fontSize: 12, marginTop: 2, lineHeight: 16 },
+
     botonGuardar: { backgroundColor: COLORS.azulMarino, borderRadius: 10, minHeight: 54, alignItems: 'center', justifyContent: 'center', marginBottom: 12, elevation: 2 },
     textoGuardar: { color: COLORS.blancoPuro, fontSize: 16, fontWeight: FONTS.bold },
     botonDeshabilitado: { backgroundColor: '#94a3b8', elevation: 0 },
@@ -288,7 +329,6 @@ const styles = StyleSheet.create({
     botonSalir: { borderWidth: 1, borderColor: '#fecaca', backgroundColor: '#fff1f2', borderRadius: 10, minHeight: 54, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
     textoSalir: { color: COLORS.rojoIntenso, fontSize: 16, fontWeight: FONTS.bold },
 
-    // --- NUEVOS ESTILOS: VISTA SIN SESIÓN ACTIVA ---
     sesionVacia: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 25, justifyContent: 'center', alignItems: 'center' },
     sesionIcono: { marginBottom: 20, backgroundColor: '#f1f5f9', padding: 25, borderRadius: 60 },
     sesionTitulo: { color: COLORS.azulMarino, fontSize: 22, fontWeight: FONTS.bold, textAlign: 'center', marginBottom: 10 },
