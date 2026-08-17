@@ -168,7 +168,14 @@ export default function InicioScreen({ navigation }) {
     }
 
     if (pantallaInterna === 'generar_qr') return <GenerarQR onVolver={() => setPantallaInterna('menu')} />;
-    if (pantallaInterna === 'registrar_lote') return <RegistrarLoteAnimal onVolver={() => setPantallaInterna('menu')} />;
+    if (pantallaInterna === 'registrar_lote') {
+        return (
+            <RegistrarLoteAnimal
+                onVolver={() => setPantallaInterna('menu')}
+                onVerRealidadAumentada={(animal) => navigation.navigate('RealidadAumentada', { animal })}
+            />
+        );
+    }
     if (pantallaInterna === 'mis_lotes') return <MisLotes onVolver={() => setPantallaInterna('menu')} />;
     if (pantallaInterna === 'sucursales') return <ActGestionSucursales onVolver={() => setPantallaInterna('menu')} />;
 

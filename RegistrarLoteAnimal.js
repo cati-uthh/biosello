@@ -11,15 +11,14 @@ import {
     View
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Camera, CameraView } from 'expo-camera';
 import CalendarioModal from './CalendarioModal';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
 import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
 
 const TIPOS_LOTE = [
-    { id: 'res', label: 'Res', especie: 'BOVINO', icono: 'nutrition', color: COLORS.rojoIntenso, fondo: '#fff1f2' },
-    { id: 'cerdo', label: 'Cerdo', especie: 'PORCINO', icono: 'restaurant', color: '#db2777', fondo: '#fdf2f8' }
+    { id: 'res', label: 'Res', especie: 'BOVINO', animalRA: 'vaca', icono: 'nutrition', color: COLORS.rojoIntenso, fondo: '#fff1f2' },
+    { id: 'cerdo', label: 'Cerdo', especie: 'PORCINO', animalRA: 'cerdo', icono: 'restaurant', color: '#db2777', fondo: '#fdf2f8' }
 ];
 
 const SEXOS = ['HEMBRA', 'MACHO'];
@@ -216,7 +215,7 @@ const Seccion = ({ titulo, subtitulo, icono, children }) => (
     </View>
 );
 
-export default function RegistrarLoteAnimal({ onVolver }) {
+export default function RegistrarLoteAnimal({ onVolver, onVerRealidadAumentada }) {
     const { usuario } = useContext(AuthContext);
     const [tipoSeleccionado, setTipoSeleccionado] = useState(null);
     const [formData, setFormData] = useState(() => crearFormInicial());
@@ -394,17 +393,26 @@ export default function RegistrarLoteAnimal({ onVolver }) {
 
                 <View style={styles.selectorGrid}>
                     {TIPOS_LOTE.map((tipo) => (
-                        <TouchableOpacity
-                            key={tipo.id}
-                            style={styles.tarjetaTipo}
-                            onPress={() => seleccionarTipoLote(tipo)}
-                        >
-                            <View style={[styles.iconoTipo, { backgroundColor: tipo.fondo }]}>
-                                <Ionicons name={tipo.icono} size={28} color={tipo.color} />
-                            </View>
-                            <Text style={styles.tipoTitulo}>Lote de {tipo.label}</Text>
-                            <Text style={styles.tipoSubtitulo}>{tipo.especie}</Text>
-                        </TouchableOpacity>
+                        <View key={tipo.id} style={styles.tarjetaTipo}>
+                            <TouchableOpacity
+                                style={styles.botonSeleccionarTipo}
+                                onPress={() => seleccionarTipoLote(tipo)}
+                            >
+                                <View style={[styles.iconoTipo, { backgroundColor: tipo.fondo }]}>
+                                    <Ionicons name={tipo.icono} size={28} color={tipo.color} />
+                                </View>
+                                <Text style={styles.tipoTitulo}>Lote de {tipo.label}</Text>
+                                <Text style={styles.tipoSubtitulo}>{tipo.especie}</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.botonRealidadAumentada}
+                                onPress={() => onVerRealidadAumentada?.(tipo.animalRA)}
+                            >
+                                <Ionicons name="cube-outline" size={17} color={COLORS.blancoPuro} />
+                                <Text style={styles.textoBotonRealidadAumentada}>Ver en RA</Text>
+                            </TouchableOpacity>
+                        </View>
                     ))}
                 </View>
             </View>
@@ -757,10 +765,14 @@ const styles = StyleSheet.create({
     pantalla: { flex: 1, backgroundColor: COLORS.blancoPuro },
     pantallaSelector: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 20 },
     selectorGrid: { flexDirection: 'row', gap: 12, marginTop: 16 },
-    tarjetaTipo: { flex: 1, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioTarjeta, padding: 16, backgroundColor: COLORS.blancoPuro },
+    tarjetaTipo: { flex: 1, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: SIZES.radioTarjeta, padding: 12, backgroundColor: COLORS.blancoPuro },
+    botonSeleccionarTipo: { flex: 1, padding: 4 },
     iconoTipo: { width: 44, height: 44, borderRadius: SIZES.radioBoton, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
     tipoTitulo: { fontSize: 15, fontWeight: FONTS.bold, color: '#0f172a' },
     tipoSubtitulo: { fontSize: 12, color: '#64748b', marginTop: 4 },
+    subtitulo: { fontSize: 14, color: '#64748b', marginTop: 6 },
+    botonRealidadAumentada: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: COLORS.azulCeruleo, borderRadius: SIZES.radioBoton, paddingVertical: 10, paddingHorizontal: 8, marginTop: 14 },
+    textoBotonRealidadAumentada: { color: COLORS.blancoPuro, fontSize: 12, fontWeight: FONTS.bold },
     contenedor: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 15 },
     contenido: { paddingBottom: 40 },
     botonRegresarLink: { marginVertical: 10 },

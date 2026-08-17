@@ -13,6 +13,7 @@ import CuentaScreen from './CuentaScreen';
 import ActRegistroNegocio from './actRegistroNegocio';
 import ActRegistroUsuario from './ActRegistroUsuario';
 import ActInicioSesion from './ActInicioSesion';
+import RealidadAumentadaScreen from './src/realidad-aumentada/RealidadAumentadaScreen';
 import { AuthProvider, AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
 
@@ -123,6 +124,11 @@ function AppNavigator() {
             headerTintColor: COLORS.blancoPuro,
             headerBackTitleVisible: false
           }}
+        />
+        <Stack.Screen
+          name="RealidadAumentada"
+          component={RealidadAumentadaScreen}
+          options={{ headerShown: false }}
         />
       </Stack.Navigator>
     </NavigationContainer>
