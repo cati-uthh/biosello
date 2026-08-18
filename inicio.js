@@ -120,6 +120,7 @@ export default function InicioScreen({ navigation }) {
     if (pantallaInterna === 'generar_qr') return <GenerarQR onVolver={() => setPantallaInterna('menu')} />;
     if (pantallaInterna === 'registrar_lote') return <RegistrarLoteAnimal onVolver={() => setPantallaInterna('menu')} />;
     if (pantallaInterna === 'mis_lotes') return <MisLotes onVolver={() => setPantallaInterna('menu')} />;
+    //if (pantallaInterna === 'recomendaciones') return <Recomendaciones onVolver={() => setPantallaInterna('menu')} />;
 
     const porVencer = lotes.filter((lote) => {
         const dias = diasParaVencer(lote.fecha_vencimiento);
@@ -179,6 +180,14 @@ export default function InicioScreen({ navigation }) {
                     </View>
                     <Text style={styles.tarjetaTitulo}>Ver lotes</Text>
                     <Text style={styles.tarjetaSubtitulo}>Inventario por estado</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.tarjetaMenu} onPress={() => setPantallaInterna('recomendaciones')}>
+                    <View style={[styles.iconoFondo, { backgroundColor: '#e0f2fe' }]}>
+                        <Ionicons name="thermometer-outline" size={24} color="#0284c7"/>
+                    </View>
+                    <Text style={styles.tarjetaTitulo}>Guia de conservación</Text>
+                    <Text style={styles.tarjetaSubtitulo}>Recomendacioens por tipo de corte</Text>
                 </TouchableOpacity>
             </View>
 
