@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Text, View, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { CameraView, Camera } from "expo-camera";
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
+import { extraerIdentificadorQR } from './src/utils/qr';
 
 export default function EscanerQR({ navigation }) {
   const [hasPermission, setHasPermission] = useState(null);
@@ -14,7 +15,7 @@ export default function EscanerQR({ navigation }) {
       if (status === 'granted') {
         setHasPermission(true);
       } else {
-        setShowPermissionModal(true);
+         setShowPermissionModal(true);
       }
     })();
   }, []);
@@ -25,9 +26,16 @@ export default function EscanerQR({ navigation }) {
     setShowPermissionModal(false);
   };
 
-  const handleBarCodeScanned = ({ type, data }) => {
+  const handleBarCodeScanned = ({ data }) => {
     setScanned(true);
-    alert(`Código escaneado: ${data}`);
+
+    const identificador = extraerIdentificadorQR(data);
+    const idExtraido = identificador?.idLote || identificador?.codigoLote || data;
+
+    navigation.navigate('IngresoManual', {
+      codigoQR: idExtraido,
+      origenConsulta: 'qr'
+    });
   };
 
   return (
@@ -37,24 +45,36 @@ export default function EscanerQR({ navigation }) {
       </Text>
 
       <View style={styles.scannerWrapper}>
-        {hasPermission ? (
-          <CameraView
-            onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-            barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-            style={styles.camera}
-          />
-        ) : (
-          <View style={styles.cameraPlaceholder} />
-        )}
-
-
+         {hasPermission ? (
+            <CameraView
+              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+              barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+              style={styles.camera}
+            />
+         ) : (
+            <View style={styles.cameraPlaceholder}>
+              <TouchableOpacity
+                style={styles.retryCameraButton}
+                onPress={() => setShowPermissionModal(true)}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel="Activar cámara"
+              >
+                <Text style={styles.retryCameraText}>Activar cámara</Text>
+              </TouchableOpacity>
+            </View>
+         )}
       </View>
 
       <Text style={styles.helpText}>¿No detecta el código QR?</Text>
-
-      <TouchableOpacity
-        style={styles.manualButton}
-        onPress={() => navigation.navigate('IngresoManual')}
+      
+      {/* Botón manual mandando el parámetro vacío */}
+      <TouchableOpacity 
+        style={styles.manualButton} 
+        onPress={() => navigation.navigate('IngresoManual', {
+          codigoQR: '',
+          origenConsulta: 'manual'
+        })}
       >
         <Text style={styles.manualButtonText}>Ingresar manualmente</Text>
       </TouchableOpacity>
@@ -65,14 +85,35 @@ export default function EscanerQR({ navigation }) {
         </TouchableOpacity>
       )}
 
-      <Modal visible={showPermissionModal} transparent={true} animationType="fade">
+      {/* Modal de Permisos */}
+      <Modal
+        visible={showPermissionModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPermissionModal(false)}
+      >
         <View style={styles.modalBackground}>
           <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Permisos de camara</Text>
+            <Text style={styles.modalTitle}>Permisos de cámara</Text>
             <Text style={styles.modalText}>Necesitamos acceder a tu cámara para poder escanear el código QR.</Text>
-            <TouchableOpacity onPress={requestPermission}>
-              <Text style={styles.modalActionText}>Aceptar</Text>
-            </TouchableOpacity>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setShowPermissionModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Cancelar solicitud de permiso de cámara"
+              >
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={requestPermission}
+                accessibilityRole="button"
+                accessibilityLabel="Permitir acceso a la cámara"
+              >
+                <Text style={styles.modalActionText}>Aceptar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -80,77 +121,24 @@ export default function EscanerQR({ navigation }) {
     </View>
   );
 }
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    paddingTop: 40,
-  },
-  instructionText: {
-    fontSize: 16,
-    textAlign: 'center',
-    fontWeight: 'bold',
-    marginBottom: 30,
-  },
-  scannerWrapper: {
-    width: 250,
-    height: 250,
-    overflow: 'hidden',
-    borderRadius: 10,
-    marginBottom: 40,
-    backgroundColor: '#f0f0f0', // Color de fondo por si no hay cámara aún
-  },
-  camera: {
-    flex: 1,
-  },
-  cameraPlaceholder: {
-    flex: 1,
-    backgroundColor: '#E8E8E8',
-  },
-  helpText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  manualButton: {
-    backgroundColor: '#D32F2F', // El rojo de tu botón
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-    width: '80%',
-    alignItems: 'center',
-  },
-  manualButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  // Estilos del Modal
-  modalBackground: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    backgroundColor: '#F3E5F5', // Lila claro
-    padding: 20,
-    borderRadius: 15,
-    width: '80%',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  modalText: {
-    fontSize: 14,
-    marginBottom: 20,
-  },
-  modalActionText: {
-    color: '#003366',
-    fontWeight: 'bold',
-    textAlign: 'right',
-  }
+  container: { flex: 1, backgroundColor: COLORS.blancoPuro, alignItems: 'center', paddingTop: 40 },
+  instructionText: { fontSize: SIZES.textoBase, textAlign: 'center', fontWeight: FONTS.bold, marginBottom: 30 },
+  scannerWrapper: { width: 250, height: 250, overflow: 'hidden', borderRadius: SIZES.radioTarjeta, marginBottom: 40, backgroundColor: '#f0f0f0' },
+  camera: { flex: 1 },
+  cameraPlaceholder: { flex: 1, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center' },
+  retryCameraButton: { minHeight: 44, paddingHorizontal: 18, borderRadius: SIZES.radioBoton, backgroundColor: COLORS.azulMarino, alignItems: 'center', justifyContent: 'center' },
+  retryCameraText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: 14 },
+  helpText: { fontSize: 14, fontWeight: FONTS.bold, marginBottom: 10 },
+  manualButton: { backgroundColor: COLORS.rojoIntenso, paddingVertical: 12, paddingHorizontal: 30, borderRadius: SIZES.radioBoton, width: '80%', alignItems: 'center' },
+  manualButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: SIZES.textoBase },
+  modalBackground: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalContainer: { backgroundColor: '#F3E5F5', padding: 20, borderRadius: SIZES.radioTarjeta, width: '80%' },
+  modalTitle: { fontSize: SIZES.tituloSeccion, fontWeight: FONTS.bold, marginBottom: 10, color: COLORS.azulMarino },
+  modalText: { fontSize: 14, marginBottom: 20 },
+  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 8 },
+  modalButton: { minHeight: 44, minWidth: 88, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
+  modalCancelText: { color: '#475569', fontWeight: FONTS.bold },
+  modalActionText: { color: COLORS.azulMarino, fontWeight: FONTS.bold }
 });
