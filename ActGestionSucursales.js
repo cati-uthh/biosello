@@ -253,7 +253,14 @@ export default function ActGestionSucursales({ onVolver }) {
     return (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-                <TouchableOpacity style={styles.botonRegresarLink} onPress={onVolver}>
+                <TouchableOpacity
+                    style={styles.botonRegresarLink}
+                    onPress={onVolver}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Volver al Panel Principal"
+                >
+                    <Ionicons name="arrow-back" size={20} color={COLORS.azulMarino} />
                     <Text style={styles.textoRegresarLink}>Volver al Panel Principal</Text>
                 </TouchableOpacity>
 
@@ -508,8 +515,8 @@ export default function ActGestionSucursales({ onVolver }) {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 15 },
-    botonRegresarLink: { marginVertical: 10 },
-    textoRegresarLink: { color: COLORS.azulMarino, fontWeight: FONTS.bold, fontSize: 14 },
+    botonRegresarLink: { minHeight: 44, marginVertical: 10, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6 },
+    textoRegresarLink: { color: COLORS.azulMarino, fontWeight: FONTS.bold, fontSize: 14, marginLeft: 6 },
     titulo: { fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold, color: COLORS.azulMarino, marginTop: 5 },
     subtitulo: { fontSize: 13, color: '#64748b', marginTop: 4, marginBottom: 18, lineHeight: 18 },
     

@@ -15,12 +15,11 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
-
-const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
+import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
 const CLAVE_BIOMETRIA_ACTIVADA = 'biosello_biometria_activada';
 
 export default function CuentaScreen({ navigation }) {
-  const { sesionActiva, usuario, setUsuario, setSesionActiva } = useContext(AuthContext);
+  const { sesionActiva, sesionCargando, usuario, setUsuario, cerrarSesion: cerrarSesionAuth } = useContext(AuthContext);
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [perfil, setPerfil] = useState(null);
@@ -43,9 +42,10 @@ export default function CuentaScreen({ navigation }) {
   const idUsuario = usuario?.id_usuario || usuario?.id;
 
   useEffect(() => {
+    if (sesionCargando) return;
     cargarPerfil();
     comprobarConfiguracionBiometrica();
-  }, [idUsuario]);
+  }, [idUsuario, sesionCargando]);
 
   const comprobarConfiguracionBiometrica = async () => {
     try {
@@ -86,7 +86,9 @@ export default function CuentaScreen({ navigation }) {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/perfil?id_usuario=${idUsuario}`);
+      const response = await fetch(`${API_BASE_URL}/perfil?id_usuario=${idUsuario}`, {
+        headers: getAuthHeaders(usuario)
+      });
       const result = await response.json();
 
       if (!response.ok || result.success === false) {
@@ -159,7 +161,7 @@ export default function CuentaScreen({ navigation }) {
 
       const response = await fetch(`${API_BASE_URL}/perfil`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders(usuario) },
         body: JSON.stringify(payload)
       });
       const result = await response.json();
@@ -186,10 +188,7 @@ export default function CuentaScreen({ navigation }) {
       {
         text: 'Salir',
         style: 'destructive',
-        onPress: () => {
-          setUsuario(null);
-          setSesionActiva(false);
-        }
+        onPress: cerrarSesionAuth
       }
     ]);
   };
@@ -208,7 +207,7 @@ export default function CuentaScreen({ navigation }) {
     </View>
   );
 
-  if (loading) {
+  if (sesionCargando || loading) {
     return (
       <View style={styles.cargando}>
         <ActivityIndicator size="large" color={COLORS.azulMarino} />
@@ -228,8 +227,13 @@ export default function CuentaScreen({ navigation }) {
           Para ver o editar tu perfil, necesitas registrar tu negocio o iniciar sesión con una cuenta existente.
         </Text>
 
+        <TouchableOpacity style={styles.botonUsuario} onPress={() => navigation.navigate('actRegistroUsuario')}>
+          <Ionicons name="person-add-outline" size={20} color={COLORS.blancoPuro} />
+          <Text style={styles.textoBotonUsuario}>Crear cuenta personal</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.botonRegistro} onPress={() => navigation.navigate('actRegistroNegocio')}>
-          <Ionicons name="business-outline" size={20} color={COLORS.blancoPuro} />
+          <Ionicons name="business-outline" size={20} color={COLORS.azulMarino} />
           <Text style={styles.textoBotonRegistro}>Registrar mi negocio</Text>
         </TouchableOpacity>
 
@@ -333,9 +337,12 @@ const styles = StyleSheet.create({
     sesionIcono: { marginBottom: 20, backgroundColor: '#f1f5f9', padding: 25, borderRadius: 60 },
     sesionTitulo: { color: COLORS.azulMarino, fontSize: 22, fontWeight: FONTS.bold, textAlign: 'center', marginBottom: 10 },
     sesionTexto: { color: '#64748b', fontSize: 15, textAlign: 'center', marginBottom: 35, lineHeight: 22 },
+
+    botonUsuario: { backgroundColor: COLORS.rojoIntenso, width: '100%', paddingVertical: 16, borderRadius: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 12, elevation: 2 },
+    textoBotonUsuario: { color: COLORS.blancoPuro, fontSize: 16, fontWeight: FONTS.bold, marginLeft: 10 },
     
-    botonRegistro: { backgroundColor: COLORS.rojoIntenso, width: '100%', paddingVertical: 16, borderRadius: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 15, elevation: 2 },
-    textoBotonRegistro: { color: COLORS.blancoPuro, fontSize: 16, fontWeight: FONTS.bold, marginLeft: 10 },
+    botonRegistro: { backgroundColor: COLORS.blancoPuro, borderWidth: 2, borderColor: COLORS.azulMarino, width: '100%', paddingVertical: 15, borderRadius: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
+    textoBotonRegistro: { color: COLORS.azulMarino, fontSize: 16, fontWeight: FONTS.bold, marginLeft: 10 },
     
     botonLogin: { backgroundColor: COLORS.blancoPuro, borderWidth: 2, borderColor: COLORS.azulMarino, width: '100%', paddingVertical: 15, borderRadius: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
     textoBotonLogin: { color: COLORS.azulMarino, fontSize: 16, fontWeight: FONTS.bold, marginLeft: 10 },

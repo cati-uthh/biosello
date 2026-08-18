@@ -17,13 +17,14 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
+import { API_BASE_URL, normalizarUsuarioSesion } from './src/utils/auth';
 
 const CLAVE_USUARIO_GUARDADO = 'biosello_usuario_identificador';
 const CLAVE_PASS_GUARDADA = 'biosello_usuario_pass';
 const CLAVE_BIOMETRIA_ACTIVADA = 'biosello_biometria_activada';
 
 export default function ActInicioSesion({ navigation }) {
-    const { setSesionActiva, setUsuario } = useContext(AuthContext);
+    const { iniciarSesion } = useContext(AuthContext);
     const [loading, setLoading] = useState(false);
     const [mostrarContrasena, setMostrarContrasena] = useState(false);
     const [mostrarBotonBiometrico, setMostrarBotonBiometrico] = useState(false);
@@ -129,8 +130,13 @@ export default function ActInicioSesion({ navigation }) {
     };
 
     const finalizarLogin = (datosUsuario) => {
-        setSesionActiva(true);
-        setUsuario(datosUsuario);
+        const usuarioSesion = normalizarUsuarioSesion(datosUsuario);
+        if (!usuarioSesion) {
+            Alert.alert('No se pudo iniciar sesión', 'El servidor no devolvió los datos de usuario.');
+            return;
+        }
+
+        iniciarSesion(usuarioSesion);
         navigation.reset({
             index: 0,
             routes: [{
@@ -146,7 +152,7 @@ export default function ActInicioSesion({ navigation }) {
         try {
             const idLimpio = identificadorVal.trim().toLowerCase();
 
-            const response = await fetch('https://biosello-backend.vercel.app/api/login', {
+            const response = await fetch(`${API_BASE_URL}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -156,14 +162,24 @@ export default function ActInicioSesion({ navigation }) {
                 })
             });
 
-            const result = await response.json();
+            const textResult = await response.text();
+            let result = {};
+            try {
+                result = textResult ? JSON.parse(textResult) : {};
+            } catch (error) {
+                result = {};
+            }
 
             if (!response.ok || result.success === false) {
                 Alert.alert('No se pudo iniciar sesión', result.error || 'Revisa tus datos e intenta nuevamente.');
                 return;
             }
 
-            const datosUsuario = result.usuario || result.user || result.data || null;
+            const datosUsuario = normalizarUsuarioSesion(result);
+            if (!datosUsuario) {
+                Alert.alert('No se pudo iniciar sesión', 'El servidor no devolvió los datos de usuario.');
+                return;
+            }
 
             if (esPrimerIngreso) {
                 // Verificamos si ya ha tomado una decisión de biometría previamente
@@ -242,6 +258,15 @@ export default function ActInicioSesion({ navigation }) {
                         </TouchableOpacity>
                     )}
 
+                    <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('actRegistroUsuario')} disabled={loading}>
+                        <Ionicons name="person-add-outline" size={18} color={COLORS.blancoPuro} />
+                        <Text style={styles.secondaryButtonText}>Crear cuenta personal</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.linkButton} onPress={() => navigation.navigate('actRegistroNegocio')} disabled={loading}>
+                        <Text style={styles.linkButtonText}>Registrar negocio</Text>
+                    </TouchableOpacity>
+
                     <View style={styles.forgotContainer}>
                         <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
                         <Text style={styles.subForgotText}>
@@ -268,6 +293,10 @@ const styles = StyleSheet.create({
     mainButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: SIZES.textoBase },
     biometricButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 15, padding: 10, borderWidth: 1, borderColor: COLORS.azulCeruleo, borderRadius: SIZES.radioBoton, gap: 10 },
     biometricText: { color: COLORS.blancoPuro, fontSize: SIZES.textoSecundario, fontWeight: FONTS.bold },
+    secondaryButton: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.65)', borderRadius: SIZES.radioBoton, minHeight: 48, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 12 },
+    secondaryButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: 15 },
+    linkButton: { alignItems: 'center', paddingVertical: 12 },
+    linkButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, textDecorationLine: 'underline' },
     forgotContainer: { marginTop: 25, alignItems: 'center' },
     forgotText: { color: COLORS.blancoPuro, fontSize: 15, fontWeight: FONTS.bold, textAlign: 'center' },
     subForgotText: { color: '#cbd5e1', fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 4 },

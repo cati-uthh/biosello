@@ -11,12 +11,10 @@ import {
     View
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Camera, CameraView } from 'expo-camera';
 import CalendarioModal from './CalendarioModal';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
-
-const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
+import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
 
 const TIPOS_LOTE = [
     { id: 'res', label: 'Res', especie: 'BOVINO', icono: 'nutrition', color: COLORS.rojoIntenso, fondo: '#fff1f2' },
@@ -355,7 +353,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
         try {
             const response = await fetch(`${API_BASE_URL}/registrar-lote-animal`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders(usuario) },
                 body: JSON.stringify(construirPayload())
             });
 
@@ -386,7 +384,14 @@ export default function RegistrarLoteAnimal({ onVolver }) {
     if (!tipoSeleccionado) {
         return (
             <View style={styles.pantallaSelector}>
-                <TouchableOpacity style={styles.botonRegresarLink} onPress={onVolver}>
+                <TouchableOpacity
+                    style={styles.botonRegresarLink}
+                    onPress={onVolver}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Volver al Panel Principal"
+                >
+                    <Ionicons name="arrow-back" size={19} color={COLORS.azulMarino} />
                     <Text style={styles.textoRegresarLink}>Volver al Panel Principal</Text>
                 </TouchableOpacity>
 
@@ -399,6 +404,9 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                             key={tipo.id}
                             style={styles.tarjetaTipo}
                             onPress={() => seleccionarTipoLote(tipo)}
+                            activeOpacity={0.75}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Registrar lote de ${tipo.label}`}
                         >
                             <View style={[styles.iconoTipo, { backgroundColor: tipo.fondo }]}>
                                 <Ionicons name={tipo.icono} size={28} color={tipo.color} />
@@ -422,7 +430,14 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
-                <TouchableOpacity style={styles.botonRegresarLink} onPress={onVolver}>
+                <TouchableOpacity
+                    style={styles.botonRegresarLink}
+                    onPress={onVolver}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Volver al Panel Principal"
+                >
+                    <Ionicons name="arrow-back" size={19} color={COLORS.azulMarino} />
                     <Text style={styles.textoRegresarLink}>Volver al Panel Principal</Text>
                 </TouchableOpacity>
 
@@ -762,9 +777,10 @@ const styles = StyleSheet.create({
     iconoTipo: { width: 44, height: 44, borderRadius: SIZES.radioBoton, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
     tipoTitulo: { fontSize: 15, fontWeight: FONTS.bold, color: '#0f172a' },
     tipoSubtitulo: { fontSize: 12, color: '#64748b', marginTop: 4 },
+    subtitulo: { fontSize: 14, color: '#64748b', marginTop: 6 },
     contenedor: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 15 },
     contenido: { paddingBottom: 40 },
-    botonRegresarLink: { marginVertical: 10 },
+    botonRegresarLink: { alignSelf: 'flex-start', minHeight: 44, marginVertical: 6, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 7 },
     textoRegresarLink: { color: COLORS.azulMarino, fontWeight: FONTS.bold, fontSize: 14 },
     titulo: { fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold, color: COLORS.azulMarino, marginTop: 10 },
     leyendaObligatorio: { fontSize: 13, color: COLORS.rojoIntenso, marginTop: 6, marginBottom: 18, fontStyle: 'italic', fontWeight: '500' },
