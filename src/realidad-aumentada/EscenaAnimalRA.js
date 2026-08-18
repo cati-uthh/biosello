@@ -28,7 +28,10 @@ export default function EscenaAnimalRA({ sceneNavigator }) {
         rotacion = 0,
         resetKey = 0,
         onSeguimientoActualizado,
-        onAnimalColocado
+        onAnimalColocado,
+        onModeloCargando,
+        onModeloCargado,
+        onModeloError
     } = propiedades;
 
     const alEncontrarAncla = useCallback((ancla) => {
@@ -47,6 +50,11 @@ export default function EscenaAnimalRA({ sceneNavigator }) {
         // La posición la conserva Viro en el nodo nativo durante el arrastre.
     }, []);
 
+    const alFallarModelo = useCallback((evento) => {
+        const detalle = evento?.nativeEvent?.error || evento?.nativeEvent?.message;
+        onModeloError?.(detalle ? String(detalle) : 'No se pudo cargar el modelo 3D local.');
+    }, [onModeloError]);
+
     return (
         <ViroARScene
             anchorDetectionTypes={['PlanesHorizontal']}
@@ -61,8 +69,8 @@ export default function EscenaAnimalRA({ sceneNavigator }) {
             <ViroARPlaneSelector
                 ref={selectorPlanoRef}
                 alignment="Horizontal"
-                minWidth={0.45}
-                minHeight={0.45}
+                minWidth={0.3}
+                minHeight={0.3}
                 hideOverlayOnSelection
                 useActualShape
                 material="raPlanoColocacion"
@@ -70,15 +78,25 @@ export default function EscenaAnimalRA({ sceneNavigator }) {
             >
                 <ViroNode
                     key={`animal-ra-${resetKey}`}
-                    position={[0, 0.008, 0]}
-                    dragType="FixedToWorld"
+                    position={[0, 0.003, 0]}
+                    dragType="FixedToPlane"
+                    dragPlane={{
+                        planePoint: [0, 0.003, 0],
+                        planeNormal: [0, 1, 0],
+                        maxDistance: 1.5
+                    }}
                     onDrag={habilitarArrastre}
                 >
                     <ViroNode
                         scale={[escala, escala, escala]}
                         rotation={[0, rotacion, 0]}
                     >
-                        <ModeloAnimal animal={animal} />
+                        <ModeloAnimal
+                            animal={animal}
+                            onLoadStart={onModeloCargando}
+                            onLoadEnd={onModeloCargado}
+                            onError={alFallarModelo}
+                        />
                     </ViroNode>
                 </ViroNode>
             </ViroARPlaneSelector>

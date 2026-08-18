@@ -426,8 +426,15 @@ export default function MisLotes({ onVolver }) {
             showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refrescar} tintColor={COLORS.azulMarino} />}
         >
-            <TouchableOpacity style={styles.botonRegresarLink} onPress={onVolver}>
-                <Text style={styles.textoRegresarLink}>← Volver al Panel Principal</Text>
+            <TouchableOpacity
+                style={styles.botonRegresarLink}
+                onPress={onVolver}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Volver al Panel Principal"
+            >
+                <Ionicons name="arrow-back" size={20} color={COLORS.azulMarino} />
+                <Text style={styles.textoRegresarLink}>Volver al Panel Principal</Text>
             </TouchableOpacity>
 
             <View style={styles.encabezadoFila}>
@@ -658,8 +665,8 @@ export default function MisLotes({ onVolver }) {
 const styles = StyleSheet.create({
     contenedor: { flex: 1, backgroundColor: '#f8fafc', paddingHorizontal: 16, paddingTop: 15 },
     contenido: { paddingBottom: 40 },
-    botonRegresarLink: { marginVertical: 10 },
-    textoRegresarLink: { color: COLORS.azulMarino, fontWeight: FONTS.bold, fontSize: 14 },
+    botonRegresarLink: { minHeight: 44, marginVertical: 10, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6 },
+    textoRegresarLink: { color: COLORS.azulMarino, fontWeight: FONTS.bold, fontSize: 14, marginLeft: 6 },
     encabezadoFila: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
     titulo: { fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold, color: COLORS.azulMarino },
     subtitulo: { fontSize: 13, color: '#64748b', marginTop: 4 },

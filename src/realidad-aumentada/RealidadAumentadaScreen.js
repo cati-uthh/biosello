@@ -55,6 +55,8 @@ export default function RealidadAumentadaScreen({ navigation, route }) {
     const [puedeVolverASolicitar, setPuedeVolverASolicitar] = useState(true);
     const [seguimiento, setSeguimiento] = useState('inicializando');
     const [animalColocado, setAnimalColocado] = useState(false);
+    const [estadoModelo, setEstadoModelo] = useState('pendiente');
+    const [errorModelo, setErrorModelo] = useState('');
     const [escala, setEscala] = useState(ESCALA_INICIAL);
     const [rotacion, setRotacion] = useState(0);
     const [resetKey, setResetKey] = useState(0);
@@ -131,11 +133,33 @@ export default function RealidadAumentadaScreen({ navigation, route }) {
         setAnimalColocado(true);
     }, []);
 
+    const alIniciarCargaModelo = useCallback(() => {
+        setEstadoModelo('cargando');
+        setErrorModelo('');
+    }, []);
+
+    const alTerminarCargaModelo = useCallback((evento) => {
+        if (evento?.nativeEvent?.success === false) {
+            setEstadoModelo('error');
+            setErrorModelo('Viro no pudo completar la carga del archivo GLB.');
+            return;
+        }
+        setEstadoModelo('listo');
+        setErrorModelo('');
+    }, []);
+
+    const alFallarCargaModelo = useCallback((detalle) => {
+        setEstadoModelo('error');
+        setErrorModelo(detalle || 'No se pudo cargar el modelo 3D local.');
+    }, []);
+
     const restablecerAnimal = useCallback(() => {
         setEscala(ESCALA_INICIAL);
         setRotacion(0);
+        setEstadoModelo(animalColocado ? 'cargando' : 'pendiente');
+        setErrorModelo('');
         setResetKey((valor) => valor + 1);
-    }, []);
+    }, [animalColocado]);
 
     const abrirConfiguracionOPedirPermiso = useCallback(() => {
         if (puedeVolverASolicitar) {
@@ -152,8 +176,14 @@ export default function RealidadAumentadaScreen({ navigation, route }) {
         if (!animalColocado) {
             return 'Toca la zona azul tenue a unos 60–100 cm frente a ti.';
         }
+        if (estadoModelo === 'cargando') {
+            return `Cargando el modelo de ${nombreAnimal.toLowerCase()}…`;
+        }
+        if (estadoModelo === 'error') {
+            return `No se pudo mostrar el modelo. ${errorModelo}`;
+        }
         return 'Arrastra la representación a escala o usa los controles inferiores.';
-    }, [animalColocado, seguimiento]);
+    }, [animalColocado, errorModelo, estadoModelo, nombreAnimal, seguimiento]);
 
     const aumentarEscala = () => {
         setEscala((valor) => Math.min(ESCALA_MAXIMA, Number((valor + 0.1).toFixed(2))));
@@ -178,7 +208,10 @@ export default function RealidadAumentadaScreen({ navigation, route }) {
                         rotacion,
                         resetKey,
                         onSeguimientoActualizado: alActualizarSeguimiento,
-                        onAnimalColocado: alColocarAnimal
+                        onAnimalColocado: alColocarAnimal,
+                        onModeloCargando: alIniciarCargaModelo,
+                        onModeloCargado: alTerminarCargaModelo,
+                        onModeloError: alFallarCargaModelo
                     }}
                 />
             ) : (
@@ -225,6 +258,7 @@ export default function RealidadAumentadaScreen({ navigation, route }) {
                     onPress={() => navigation.goBack()}
                     accessibilityRole="button"
                     accessibilityLabel="Regresar"
+                    hitSlop={8}
                 >
                     <Ionicons name="arrow-back" size={24} color={COLORS.blancoPuro} />
                 </TouchableOpacity>
@@ -241,9 +275,11 @@ export default function RealidadAumentadaScreen({ navigation, route }) {
                 <>
                     <View style={[styles.instruccionTarjeta, { top: insets.top + 78 }]}>
                         <Ionicons
-                            name={animalColocado ? 'hand-left-outline' : 'scan-outline'}
+                            name={estadoModelo === 'error'
+                                ? 'alert-circle-outline'
+                                : animalColocado ? 'hand-left-outline' : 'scan-outline'}
                             size={20}
-                            color={COLORS.azulCeruleo}
+                            color={estadoModelo === 'error' ? COLORS.rojoIntenso : COLORS.azulCeruleo}
                         />
                         <Text style={styles.instruccionTexto}>{instruccion}</Text>
                     </View>
@@ -273,7 +309,7 @@ const styles = StyleSheet.create({
     pantalla: { flex: 1, backgroundColor: COLORS.azulMarino },
     visorRA: { flex: 1 },
     encabezado: { position: 'absolute', top: 0, left: 0, right: 0, minHeight: 70, paddingHorizontal: 16, paddingBottom: 12, backgroundColor: 'rgba(4, 30, 58, 0.94)', flexDirection: 'row', alignItems: 'flex-end' },
-    botonRegresar: { width: 42, height: 42, borderRadius: SIZES.radioBoton, backgroundColor: 'rgba(255, 255, 255, 0.12)', alignItems: 'center', justifyContent: 'center' },
+    botonRegresar: { width: 44, height: 44, borderRadius: SIZES.radioBoton, backgroundColor: 'rgba(255, 255, 255, 0.12)', alignItems: 'center', justifyContent: 'center' },
     encabezadoTexto: { flex: 1, marginHorizontal: 12 },
     encabezadoTitulo: { color: COLORS.blancoPuro, fontSize: SIZES.tituloSeccion, fontWeight: FONTS.bold },
     encabezadoSubtitulo: { color: '#cbd5e1', fontSize: SIZES.textoSecundario, marginTop: 2 },

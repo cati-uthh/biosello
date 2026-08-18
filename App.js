@@ -13,12 +13,12 @@ import CuentaScreen from './CuentaScreen';
 import ActRegistroNegocio from './actRegistroNegocio';
 import ActRegistroUsuario from './ActRegistroUsuario';
 import ActInicioSesion from './ActInicioSesion';
-import RealidadAumentadaScreen from './src/realidad-aumentada/RealidadAumentadaScreen';
 import { AuthProvider, AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+const cargarPantallaRealidadAumentada = () => require('./src/realidad-aumentada/RealidadAumentadaScreen').default;
 
 function EscanerStackScreen() {
   return (
@@ -127,7 +127,7 @@ function AppNavigator() {
         />
         <Stack.Screen
           name="RealidadAumentada"
-          component={RealidadAumentadaScreen}
+          getComponent={cargarPantallaRealidadAumentada}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

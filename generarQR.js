@@ -184,8 +184,15 @@ export default function GenerarQR({ onVolver }) {
 
     return (
         <ScrollView style={styles.contenedorQR} showsVerticalScrollIndicator={false}>
-            <TouchableOpacity style={styles.botonRegresarLink} onPress={onVolver}>
-                <Text style={styles.textoRegresarLink}>← Volver al Panel Principal</Text>
+            <TouchableOpacity
+                style={styles.botonRegresarLink}
+                onPress={onVolver}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Volver al Panel Principal"
+            >
+                <Ionicons name="arrow-back" size={20} color={PALETA.azulCeruleo} />
+                <Text style={styles.textoRegresarLink}>Volver al Panel Principal</Text>
             </TouchableOpacity>
 
             <Text style={styles.tituloSeccionQR}>Generar Etiqueta de Salida</Text>
@@ -411,8 +418,8 @@ export default function GenerarQR({ onVolver }) {
 
 const styles = StyleSheet.create({
     contenedorQR: { flex: 1, backgroundColor: PALETA.blancoPuro, paddingHorizontal: 20, paddingTop: 15 },
-    botonRegresarLink: { marginVertical: 10 },
-    textoRegresarLink: { color: PALETA.azulCeruleo, fontWeight: '700', fontSize: 14 },
+    botonRegresarLink: { minHeight: 44, marginVertical: 10, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6 },
+    textoRegresarLink: { color: PALETA.azulCeruleo, fontWeight: '700', fontSize: 14, marginLeft: 6 },
     tituloSeccionQR: { fontSize: 22, fontWeight: '700', color: PALETA.azulMarino }, 
     subtituloSeccionQR: { fontSize: 13, color: PALETA.textoGris, marginTop: 4, marginBottom: 15 },
     

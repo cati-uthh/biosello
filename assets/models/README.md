@@ -1,21 +1,23 @@
 # Modelos 3D locales para Realidad Aumentada
 
-La implementación actual no descarga recursos: la vaca y el cerdo se construyen con geometría 3D local en `src/realidad-aumentada/ModeloAnimal.js`.
+La aplicación empaqueta dos modelos GLB 2.0 con sus materiales y texturas
+embebidos. No se descargan recursos durante la experiencia de RA.
 
-Para sustituir esas representaciones por modelos artísticos, el formato recomendado es **GLB 2.0**, porque conserva mallas, materiales, texturas y animaciones en un solo archivo.
+- `vaca/vaca.glb`: normalizado a escala `0.016166992`, rotación Y de `90°`.
+- `cerdo/cerdo.glb`: normalizado a escala `0.003057138`, rotación Y de
+  `43.22633°`.
 
-Coloca los archivos con estos nombres:
+Ambos quedan apoyados en Y=0 y con un largo aproximado de 0.48 m. Los ajustes
+se encuentran en `src/realidad-aumentada/ModeloAnimal.js`.
 
-- `assets/models/vaca/vaca.glb`
-- `assets/models/cerdo/cerdo.glb`
+## Atribuciones
 
-Metro ya está configurado para empaquetarlos. La importación debe ser estática, por ejemplo:
+Los modelos conservan su licencia CC BY 4.0 y sus metadatos originales dentro
+del GLB:
 
-```js
-const MODELOS = {
-    vaca: require('../../assets/models/vaca/vaca.glb'),
-    cerdo: require('../../assets/models/cerdo/cerdo.glb')
-};
-```
-
-Después se pueden renderizar con `Viro3DObject`, usando `source={MODELOS[animal]}` y `type="GLB"`. No se deben usar URLs remotas.
+- **Cow**, por [Josué Boisvert](https://sketchfab.com/JosueBoisvert),
+  [fuente](https://sketchfab.com/3d-models/cow-99d333e3b4e4470a8d7d38436489c001),
+  licencia [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- **lowpoly pig**, por [fabiotambone](https://sketchfab.com/fabiotambone),
+  [fuente](https://sketchfab.com/3d-models/lowpoly-pig-26ae14bd0d2b4650b4bf878ca85ad06a),
+  licencia [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).

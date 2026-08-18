@@ -1,6 +1,18 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Image, ScrollView, ActivityIndicator } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    Linking,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Camera } from 'expo-camera';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
 import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
@@ -16,15 +28,49 @@ const formatearParaUI = (fecha) => {
     return fecha;
 };
 
+const normalizarTextoEspecie = (valor) => String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase();
+
+const obtenerAnimalRA = (datos) => {
+    const detalles = datos?.detalles_trazabilidad || {};
+    const valoresPosibles = [
+        detalles.especie,
+        datos?.especie,
+        datos?.especie_nombre,
+        datos?.tipo_carne,
+        datos?.categoria,
+        datos?.producto
+    ];
+
+    for (const valor of valoresPosibles) {
+        const especie = normalizarTextoEspecie(valor);
+        if (/PORCIN|CERDO|PORK/.test(especie)) {
+            return 'cerdo';
+        }
+        if (/BOVIN|VACA|BEEF/.test(especie) || /(^|[^A-Z])RES([^A-Z]|$)/.test(especie)) {
+            return 'vaca';
+        }
+    }
+
+    return null;
+};
+
 export default function IngresoManual({ route, navigation }) {
     const { usuario } = useContext(AuthContext);
     // Si la pantalla fue abierta por el Escáner, recibe el código aquí
     const codigoEscaneado = route?.params?.codigoQR || '';
+    const consultaDesdeQR = route?.params?.origenConsulta === 'qr';
 
     const [codigo, setCodigo] = useState(codigoEscaneado);
     const [loading, setLoading] = useState(false);
     const [datosLote, setDatosLote] = useState(null);
     const [errorData, setErrorData] = useState(null);
+    const [abriendoRA, setAbriendoRA] = useState(false);
+
+    const animalRA = obtenerAnimalRA(datosLote);
 
     // Si viene del escáner con datos, busca automáticamente
     useEffect(() => {
@@ -38,7 +84,7 @@ export default function IngresoManual({ route, navigation }) {
         const idLimpiado = identificador?.idLote || identificador?.codigoLote || '';
         
         if (idLimpiado === '') {
-            alert('Por favor, ingrese un número válido.');
+            Alert.alert('Código requerido', 'Por favor, ingrese un número válido.');
             return;
         }
 
@@ -70,6 +116,49 @@ export default function IngresoManual({ route, navigation }) {
         }
     };
 
+    const abrirRealidadAumentada = async () => {
+        if (!consultaDesdeQR || !animalRA || abriendoRA) return;
+
+        setAbriendoRA(true);
+        try {
+            let permiso = await Camera.getCameraPermissionsAsync();
+
+            if (!permiso.granted && permiso.canAskAgain !== false) {
+                permiso = await Camera.requestCameraPermissionsAsync();
+            }
+
+            if (!permiso.granted) {
+                const acciones = [{ text: 'Entendido', style: 'cancel' }];
+                if (permiso.canAskAgain === false) {
+                    acciones.push({
+                        text: 'Abrir configuración',
+                        onPress: () => Linking.openSettings()
+                    });
+                }
+
+                Alert.alert(
+                    'Permiso de cámara requerido',
+                    'La cámara es necesaria para visualizar el animal en Realidad Aumentada.',
+                    acciones
+                );
+                return;
+            }
+
+            navigation.navigate('RealidadAumentada', {
+                animal: animalRA,
+                origen: 'consulta-qr',
+                loteId: datosLote?.lote_id
+            });
+        } catch (error) {
+            Alert.alert(
+                'No se pudo abrir la cámara',
+                'Ocurrió un problema al comprobar el permiso. Intenta nuevamente.'
+            );
+        } finally {
+            setAbriendoRA(false);
+        }
+    };
+
     // Componente reutilizable para la tabla
     const FilaTabla = ({ label, valor, destacar = false }) => (
         <View style={styles.filaTabla}>
@@ -80,7 +169,19 @@ export default function IngresoManual({ route, navigation }) {
 
     return (
         <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-            
+            <View style={styles.encabezadoNavegacion}>
+                <TouchableOpacity
+                    style={styles.botonVolver}
+                    onPress={() => navigation.goBack()}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Volver al escáner"
+                >
+                    <Ionicons name="arrow-back" size={20} color={COLORS.azulMarino} />
+                    <Text style={styles.textoVolver}>Volver al escáner</Text>
+                </TouchableOpacity>
+            </View>
+
             {/* 1. VISTA DE CARGA */}
             {loading && (
                 <View style={styles.estadoCentrado}>
@@ -183,6 +284,31 @@ export default function IngresoManual({ route, navigation }) {
                         </View>
                     </View>
 
+                    {consultaDesdeQR && animalRA && (
+                        <TouchableOpacity
+                            style={[styles.botonRA, abriendoRA && styles.botonDeshabilitado]}
+                            onPress={abrirRealidadAumentada}
+                            disabled={abriendoRA}
+                            activeOpacity={0.78}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Ver ${animalRA === 'cerdo' ? 'cerdo' : 'vaca'} en Realidad Aumentada`}
+                            accessibilityState={{ disabled: abriendoRA, busy: abriendoRA }}
+                        >
+                            <View style={styles.iconoRA}>
+                                <Ionicons name="cube-outline" size={23} color={COLORS.blancoPuro} />
+                            </View>
+                            <View style={styles.contenidoBotonRA}>
+                                <Text style={styles.tituloBotonRA}>Ver en Realidad Aumentada</Text>
+                                <Text style={styles.subtituloBotonRA}>
+                                    Visualiza una representación a escala del animal
+                                </Text>
+                            </View>
+                            {abriendoRA
+                                ? <ActivityIndicator size="small" color={COLORS.blancoPuro} />
+                                : <Ionicons name="chevron-forward" size={21} color={COLORS.blancoPuro} />}
+                        </TouchableOpacity>
+                    )}
+
                     {/* BOTÓN PARA LIMPIAR Y VOLVER A BUSCAR */}
                     <TouchableOpacity style={[styles.primaryButton, {marginTop: 15}]} onPress={() => { setDatosLote(null); setCodigo(''); }}>
                         <Text style={styles.buttonText}>Realizar otra búsqueda</Text>
@@ -195,6 +321,9 @@ export default function IngresoManual({ route, navigation }) {
 
 const styles = StyleSheet.create({
     scrollContainer: { flexGrow: 1, backgroundColor: COLORS.blancoPuro, paddingBottom: 40 },
+    encabezadoNavegacion: { minHeight: 58, paddingHorizontal: 12, paddingTop: 8, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', backgroundColor: COLORS.blancoPuro },
+    botonVolver: { alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 7 },
+    textoVolver: { color: COLORS.azulMarino, fontSize: 14, fontWeight: FONTS.bold },
     
     // Estilos Originales de Ingreso Manual
     containerOriginal: { alignItems: 'center', paddingTop: 50, paddingHorizontal: 30 },
@@ -224,5 +353,12 @@ const styles = StyleSheet.create({
     filaTabla: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
     labelTabla: { fontSize: 13, color: '#64748b', flex: 1, paddingRight: 10 },
     valorTabla: { fontSize: 13, color: '#1e293b', fontWeight: '600', flex: 1.2, textAlign: 'right' },
-    valorDestacado: { color: COLORS.azulMarino, fontWeight: '900', fontSize: 14 }
+    valorDestacado: { color: COLORS.azulMarino, fontWeight: '900', fontSize: 14 },
+
+    botonRA: { width: '100%', minHeight: 76, marginTop: 4, marginBottom: 8, paddingVertical: 13, paddingHorizontal: 14, borderRadius: SIZES.radioTarjeta, backgroundColor: COLORS.azulCeruleo, flexDirection: 'row', alignItems: 'center', elevation: 2 },
+    botonDeshabilitado: { opacity: 0.68 },
+    iconoRA: { width: 42, height: 42, borderRadius: SIZES.radioBoton, backgroundColor: 'rgba(255, 255, 255, 0.16)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    contenidoBotonRA: { flex: 1, paddingRight: 8 },
+    tituloBotonRA: { color: COLORS.blancoPuro, fontSize: 15, fontWeight: FONTS.bold },
+    subtituloBotonRA: { color: '#e0f2fe', fontSize: 11, lineHeight: 16, marginTop: 3 }
 });
