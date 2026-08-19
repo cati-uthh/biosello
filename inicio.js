@@ -19,9 +19,10 @@ import GenerarQR from './generarQR';
 import RegistrarLoteAnimal from './RegistrarLoteAnimal';
 import MisLotes from './MisLotes';
 import ActGestionSucursales from './ActGestionSucursales'; // Nueva pantalla
+import GestionEmpleados from './GestionEmpleados';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
-import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
+import { API_BASE_URL, esPerfilAdministrador, getAuthHeaders } from './src/utils/auth';
 
 const diasParaVencer = (fecha) => {
     if (!fecha) return null;
@@ -171,6 +172,15 @@ export default function InicioScreen({ navigation }) {
     if (pantallaInterna === 'registrar_lote') return <RegistrarLoteAnimal onVolver={() => setPantallaInterna('menu')} />;
     if (pantallaInterna === 'mis_lotes') return <MisLotes onVolver={() => setPantallaInterna('menu')} />;
     if (pantallaInterna === 'sucursales') return <ActGestionSucursales onVolver={() => setPantallaInterna('menu')} />;
+    if (pantallaInterna === 'empleados') {
+        return (
+            <GestionEmpleados
+                onVolver={() => setPantallaInterna('menu')}
+                idNegocio={sucursalActiva?.id_negocio || usuario?.id_negocio || usuario?.negocio?.id_negocio}
+                nombreNegocio={sucursalActiva?.nombre_sucursal || usuario?.nombre_negocio}
+            />
+        );
+    }
 
     const lotesActivos = lotes.filter(lote => lote.estado === 'activo');
     const lotesCaducados = lotes.filter((lote) => {
@@ -274,21 +284,25 @@ export default function InicioScreen({ navigation }) {
                     <Text style={styles.tarjetaSubtitulo}>Generar código QR e imprimir</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.tarjetaMenu}>
-                    <View style={[styles.iconoFondo, { backgroundColor: '#dcfce7' }]}>
-                        <Ionicons name="people" size={24} color="#16a34a" />
-                    </View>
-                    <Text style={styles.tarjetaTitulo}>Mis empleados</Text>
-                    <Text style={styles.tarjetaSubtitulo}>Gestionar accesos</Text>
-                </TouchableOpacity>
+                {esPerfilAdministrador(usuario) && (
+                    <TouchableOpacity style={styles.tarjetaMenu} onPress={() => setPantallaInterna('empleados')}>
+                        <View style={[styles.iconoFondo, { backgroundColor: '#dcfce7' }]}>
+                            <Ionicons name="people" size={24} color="#16a34a" />
+                        </View>
+                        <Text style={styles.tarjetaTitulo}>Mis empleados</Text>
+                        <Text style={styles.tarjetaSubtitulo}>Gestionar accesos</Text>
+                    </TouchableOpacity>
+                )}
 
-                <TouchableOpacity style={styles.tarjetaMenu} onPress={() => setPantallaInterna('sucursales')}>
-                    <View style={[styles.iconoFondo, { backgroundColor: '#e0f2fe' }]}>
-                        <Ionicons name="business" size={24} color="#0284c7" />
-                    </View>
-                    <Text style={styles.tarjetaTitulo}>Mis sucursales</Text>
-                    <Text style={styles.tarjetaSubtitulo}>Alta y verificación COFEPRIS</Text>
-                </TouchableOpacity>
+                {esPerfilAdministrador(usuario) && (
+                    <TouchableOpacity style={styles.tarjetaMenu} onPress={() => setPantallaInterna('sucursales')}>
+                        <View style={[styles.iconoFondo, { backgroundColor: '#e0f2fe' }]}>
+                            <Ionicons name="business" size={24} color="#0284c7" />
+                        </View>
+                        <Text style={styles.tarjetaTitulo}>Mis sucursales</Text>
+                        <Text style={styles.tarjetaSubtitulo}>Alta y verificación COFEPRIS</Text>
+                    </TouchableOpacity>
+                )}
 
                 <TouchableOpacity style={styles.tarjetaMenu} onPress={() => setPantallaInterna('mis_lotes')}>
                     <View style={[styles.iconoFondo, { backgroundColor: '#fef9c3' }]}>

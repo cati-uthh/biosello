@@ -1,7 +1,8 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Image,
     Modal,
     ScrollView,
     StyleSheet,
@@ -15,6 +16,13 @@ import CalendarioModal from './CalendarioModal';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
 import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
+import {
+    eliminarImagenAnimalTemporal,
+    formatearTamanioArchivo,
+    liberarUriImagenTemporal,
+    seleccionarImagenAnimal,
+    subirImagenAnimal
+} from './src/utils/imagenAnimal';
 
 const TIPOS_LOTE = [
     { id: 'res', label: 'Res', especie: 'BOVINO', icono: 'nutrition', color: COLORS.rojoIntenso, fondo: '#fff1f2' },
@@ -77,7 +85,8 @@ const crearFormInicial = (especie = 'BOVINO') => ({
         sexo: 'HEMBRA',
         clasificacion: especie === 'PORCINO' ? 'MARRANA' : 'VAQUILLA',
         meses_edad: '',
-        arete_faltante: false
+        arete_faltante: false,
+        imagen: null
     },
     lote: {
         codigo_lote: obtenerCodigoSugerido(),
@@ -222,6 +231,12 @@ export default function RegistrarLoteAnimal({ onVolver }) {
     const [errores, setErrores] = useState({});
     const [loading, setLoading] = useState(false);
     const [calendarioActivo, setCalendarioActivo] = useState(null);
+    const [seleccionandoImagen, setSeleccionandoImagen] = useState(false);
+
+    useEffect(() => {
+        const uriTemporal = formData.animal.imagen?.uri;
+        return () => liberarUriImagenTemporal(uriTemporal);
+    }, [formData.animal.imagen?.uri]);
 
     const actualizarCampo = (grupo, campo, valor) => {
         setFormData((prev) => {
@@ -252,6 +267,30 @@ export default function RegistrarLoteAnimal({ onVolver }) {
         if (!calendarioActivo) return;
         actualizarCampo(calendarioActivo.grupo, calendarioActivo.campo, formatearParaUI(fecha));
         setCalendarioActivo(null);
+    };
+
+    const seleccionarFotografia = async () => {
+        if (seleccionandoImagen) return;
+
+        setSeleccionandoImagen(true);
+        try {
+            const imagen = await seleccionarImagenAnimal();
+            if (!imagen) return;
+
+            actualizarCampo('animal', 'imagen', imagen);
+            setErrores((prev) => ({ ...prev, 'animal.imagen': null }));
+        } catch (error) {
+            const mensaje = error?.message || 'No se pudo procesar la fotografía seleccionada.';
+            setErrores((prev) => ({ ...prev, 'animal.imagen': mensaje }));
+            Alert.alert('Fotografía no válida', mensaje);
+        } finally {
+            setSeleccionandoImagen(false);
+        }
+    };
+
+    const quitarFotografia = () => {
+        actualizarCampo('animal', 'imagen', null);
+        setErrores((prev) => ({ ...prev, 'animal.imagen': null }));
     };
 
     const validarCampos = () => {
@@ -286,7 +325,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
         return nuevosErrores;
     };
 
-    const construirPayload = () => {
+    const construirPayload = (imagenSubida = null) => {
         const timestampUnico = Date.now().toString().slice(-6);
 
         return {
@@ -325,7 +364,9 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                 sexo: formData.animal.sexo,
                 clasificacion: formData.animal.clasificacion,
                 meses_edad: Number(formData.animal.meses_edad) || 12,
-                arete_faltante: formData.animal.arete_faltante ? 1 : 0
+                arete_faltante: formData.animal.arete_faltante ? 1 : 0,
+                imagen_animal_url: imagenSubida?.url || null,
+                imagen_animal_pathname: imagenSubida?.pathname || null
             },
             lote: {
                 codigo_lote: 'AUTO',
@@ -350,21 +391,31 @@ export default function RegistrarLoteAnimal({ onVolver }) {
         }
 
         setLoading(true);
+        let imagenSubida = null;
         try {
+            if (formData.animal.imagen) {
+                imagenSubida = await subirImagenAnimal(formData.animal.imagen, usuario);
+            }
+
             const response = await fetch(`${API_BASE_URL}/registrar-lote-animal`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...getAuthHeaders(usuario) },
-                body: JSON.stringify(construirPayload())
+                body: JSON.stringify(construirPayload(imagenSubida))
             });
 
             const result = await response.json();
 
             if (!response.ok || result.success === false) {
+                await eliminarImagenAnimalTemporal(imagenSubida, usuario);
                 Alert.alert('Error', result.error || 'No se pudo guardar el registro.');
                 return;
             }
 
-            Alert.alert('Registro Exitoso', `El lote ha sido guardado con el código: ${result.data?.codigo_lote}`, [
+            const avisoImagen = formData.animal.imagen
+                ? '\n\nLa fotografia fue almacenada y aparecera al consultar el codigo QR.'
+                : '';
+
+            Alert.alert('Registro Exitoso', `El lote ha sido guardado con el código: ${result.data?.codigo_lote}${avisoImagen}`, [
                 {
                     text: 'Entendido',
                     onPress: () => {
@@ -375,7 +426,11 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                 }
             ]);
         } catch (error) {
-            Alert.alert('Error de conexión', 'No se pudo conectar con el servidor.');
+            await eliminarImagenAnimalTemporal(imagenSubida, usuario);
+            Alert.alert(
+                'No se pudo completar el registro',
+                error?.message || 'No se pudo conectar con el servidor.'
+            );
         } finally {
             setLoading(false);
         }
@@ -677,6 +732,76 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                         errores={errores}
                         actualizarCampo={actualizarCampo}
                     />
+                    <View style={styles.campoImagen}>
+                        <Text style={styles.label}>Fotografía del animal (Opcional)</Text>
+                        {formData.animal.imagen ? (
+                            <View style={styles.imagenSeleccionadaFila}>
+                                <Image
+                                    source={{ uri: formData.animal.imagen.uri }}
+                                    style={styles.imagenPreview}
+                                    resizeMode="cover"
+                                    accessibilityLabel="Vista previa de la fotografía del animal"
+                                />
+                                <View style={styles.imagenInformacion}>
+                                    <Text style={styles.imagenNombre} numberOfLines={2}>{formData.animal.imagen.nombre}</Text>
+                                    <Text style={styles.imagenDetalle}>{formData.animal.imagen.mimeType}</Text>
+                                    <Text style={styles.imagenDetalle}>{formatearTamanioArchivo(formData.animal.imagen.tamanioBytes)}</Text>
+                                    <View style={styles.accionesImagen}>
+                                        <TouchableOpacity
+                                            style={styles.botonCambiarImagen}
+                                            onPress={seleccionarFotografia}
+                                            disabled={seleccionandoImagen}
+                                            accessibilityRole="button"
+                                            accessibilityLabel="Cambiar fotografía del animal"
+                                        >
+                                            {seleccionandoImagen
+                                                ? <ActivityIndicator size="small" color={COLORS.azulMarino} />
+                                                : <><Ionicons name="images-outline" size={16} color={COLORS.azulMarino} /><Text style={styles.textoCambiarImagen}>Cambiar</Text></>}
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={styles.botonQuitarImagen}
+                                            onPress={quitarFotografia}
+                                            accessibilityRole="button"
+                                            accessibilityLabel="Quitar fotografía del animal"
+                                        >
+                                            <Ionicons name="trash-outline" size={16} color={COLORS.rojoIntenso} />
+                                            <Text style={styles.textoQuitarImagen}>Quitar</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </View>
+                        ) : (
+                            <TouchableOpacity
+                                style={[styles.selectorImagen, errores['animal.imagen'] && styles.inputError]}
+                                onPress={seleccionarFotografia}
+                                disabled={seleccionandoImagen}
+                                accessibilityRole="button"
+                                accessibilityLabel="Seleccionar fotografía del animal"
+                            >
+                                {seleccionandoImagen ? (
+                                    <ActivityIndicator color={COLORS.azulCeruleo} />
+                                ) : (
+                                    <>
+                                        <View style={styles.iconoSelectorImagen}>
+                                            <Ionicons name="camera-outline" size={24} color={COLORS.azulCeruleo} />
+                                        </View>
+                                        <View style={styles.textoSelectorImagen}>
+                                            <Text style={styles.tituloSelectorImagen}>Seleccionar fotografía</Text>
+                                            <Text style={styles.detalleSelectorImagen}>JPG, JPEG, PNG o WEBP · Máximo 3 MB</Text>
+                                        </View>
+                                        <Ionicons name="chevron-forward" size={19} color="#64748b" />
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        )}
+                        {errores['animal.imagen'] && <Text style={styles.errorText}>{errores['animal.imagen']}</Text>}
+                        <View style={styles.avisoAlmacenamiento}>
+                            <Ionicons name="cloud-upload-outline" size={16} color="#92400e" />
+                            <Text style={styles.textoAvisoAlmacenamiento}>
+                                La fotografia se subira de forma segura al guardar el lote y aparecera en la consulta del QR.
+                            </Text>
+                        </View>
+                    </View>
                     <TouchableOpacity
                         style={styles.toggleFila}
                         onPress={() => actualizarCampo('animal', 'arete_faltante', !formData.animal.arete_faltante)}
@@ -811,6 +936,24 @@ const styles = StyleSheet.create({
     checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 1, borderColor: '#94a3b8', alignItems: 'center', justifyContent: 'center', marginRight: 10, backgroundColor: COLORS.blancoPuro },
     checkboxActivo: { backgroundColor: COLORS.azulMarino, borderColor: COLORS.azulMarino },
     toggleTexto: { color: '#334155', fontSize: 14, fontWeight: '600' },
+    campoImagen: { marginBottom: 14 },
+    selectorImagen: { minHeight: 78, borderWidth: 1, borderColor: '#cbd5e1', borderStyle: 'dashed', borderRadius: SIZES.radioBoton, backgroundColor: '#f8fafc', padding: 12, flexDirection: 'row', alignItems: 'center' },
+    iconoSelectorImagen: { width: 44, height: 44, borderRadius: SIZES.radioBoton, backgroundColor: '#e0f2fe', alignItems: 'center', justifyContent: 'center', marginRight: 11 },
+    textoSelectorImagen: { flex: 1, paddingRight: 8 },
+    tituloSelectorImagen: { color: COLORS.azulMarino, fontSize: 14, fontWeight: FONTS.bold },
+    detalleSelectorImagen: { color: '#64748b', fontSize: 11, lineHeight: 16, marginTop: 3 },
+    imagenSeleccionadaFila: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, backgroundColor: '#f8fafc', padding: 10, flexDirection: 'row', alignItems: 'center' },
+    imagenPreview: { width: 92, height: 92, borderRadius: SIZES.radioBoton, backgroundColor: '#e2e8f0' },
+    imagenInformacion: { flex: 1, minWidth: 0, marginLeft: 11 },
+    imagenNombre: { color: '#0f172a', fontSize: 13, fontWeight: FONTS.bold },
+    imagenDetalle: { color: '#64748b', fontSize: 11, marginTop: 2 },
+    accionesImagen: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 8 },
+    botonCambiarImagen: { minHeight: 38, paddingHorizontal: 10, borderRadius: SIZES.radioBoton, backgroundColor: '#e0f2fe', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
+    textoCambiarImagen: { color: COLORS.azulMarino, fontSize: 12, fontWeight: FONTS.bold },
+    botonQuitarImagen: { minHeight: 38, paddingHorizontal: 10, borderRadius: SIZES.radioBoton, backgroundColor: '#fff1f2', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
+    textoQuitarImagen: { color: COLORS.rojoIntenso, fontSize: 12, fontWeight: FONTS.bold },
+    avisoAlmacenamiento: { marginTop: 8, padding: 9, borderRadius: SIZES.radioBoton, backgroundColor: '#fffbeb', flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+    textoAvisoAlmacenamiento: { flex: 1, color: '#92400e', fontSize: 11, lineHeight: 16 },
     botonPrincipal: { backgroundColor: COLORS.azulCeruleo, paddingVertical: 16, borderRadius: 10, alignItems: 'center', justifyContent: 'center', minHeight: 54, marginTop: 4, marginBottom: 20 },
     botonDeshabilitado: { backgroundColor: '#94a3b8' },
     textoBotonPrincipal: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, fontWeight: FONTS.bold }

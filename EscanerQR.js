@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { Text, View, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { CameraView, Camera } from "expo-camera";
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
 import { extraerIdentificadorQR } from './src/utils/qr';
 
@@ -19,6 +20,12 @@ export default function EscanerQR({ navigation }) {
       }
     })();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      setScanned(false);
+    }, [])
+  );
 
   const requestPermission = async () => {
     const { status } = await Camera.requestCameraPermissionsAsync();
