@@ -60,6 +60,8 @@ export default function ActInicioSesion({ navigation }) {
             const passGuardada = await SecureStore.getItemAsync(CLAVE_PASS_GUARDADA);
 
             if (!passGuardada) {
+                await SecureStore.setItemAsync(CLAVE_BIOMETRIA_ACTIVADA, 'false');
+                setMostrarBotonBiometrico(false);
                 Alert.alert('Acceso expirado', 'Por favor ingresa tu contraseña manualmente para renovar la biometría.');
                 return;
             }
@@ -171,6 +173,21 @@ export default function ActInicioSesion({ navigation }) {
             }
 
             if (!response.ok || result.success === false) {
+                if (!esPrimerIngreso && (response.status === 401 || response.status === 403)) {
+                    await Promise.all([
+                        SecureStore.setItemAsync(CLAVE_BIOMETRIA_ACTIVADA, 'false'),
+                        SecureStore.deleteItemAsync(CLAVE_USUARIO_GUARDADO),
+                        SecureStore.deleteItemAsync(CLAVE_PASS_GUARDADA)
+                    ]);
+                    setMostrarBotonBiometrico(false);
+                    setIdVinculado('');
+                    setCredenciales({ identificador: '', contrasena: '' });
+                    Alert.alert(
+                        'Vinculación expirada',
+                        'La credencial guardada ya no es válida. Inicia sesión con tu contraseña para volver a vincular la biometría.'
+                    );
+                    return;
+                }
                 Alert.alert('No se pudo iniciar sesión', result.error || 'Revisa tus datos e intenta nuevamente.');
                 return;
             }
@@ -258,11 +275,6 @@ export default function ActInicioSesion({ navigation }) {
                         </TouchableOpacity>
                     )}
 
-                    <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('actRegistroUsuario')} disabled={loading}>
-                        <Ionicons name="person-add-outline" size={18} color={COLORS.blancoPuro} />
-                        <Text style={styles.secondaryButtonText}>Crear cuenta personal</Text>
-                    </TouchableOpacity>
-
                     <TouchableOpacity style={styles.linkButton} onPress={() => navigation.navigate('actRegistroNegocio')} disabled={loading}>
                         <Text style={styles.linkButtonText}>Registrar negocio</Text>
                     </TouchableOpacity>
@@ -293,8 +305,6 @@ const styles = StyleSheet.create({
     mainButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: SIZES.textoBase },
     biometricButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 15, padding: 10, borderWidth: 1, borderColor: COLORS.azulCeruleo, borderRadius: SIZES.radioBoton, gap: 10 },
     biometricText: { color: COLORS.blancoPuro, fontSize: SIZES.textoSecundario, fontWeight: FONTS.bold },
-    secondaryButton: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.65)', borderRadius: SIZES.radioBoton, minHeight: 48, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 12 },
-    secondaryButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: 15 },
     linkButton: { alignItems: 'center', paddingVertical: 12 },
     linkButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, textDecorationLine: 'underline' },
     forgotContainer: { marginTop: 25, alignItems: 'center' },

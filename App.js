@@ -11,7 +11,6 @@ import InicioScreen from './inicio';
 import IngresoManual from './IngresoManual';
 import CuentaScreen from './CuentaScreen';
 import ActRegistroNegocio from './actRegistroNegocio';
-import ActRegistroUsuario from './ActRegistroUsuario';
 import ActInicioSesion from './ActInicioSesion';
 import { AuthProvider, AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
@@ -109,17 +108,6 @@ function AppNavigator() {
           options={{
             headerShown: true,
             title: 'Iniciar Sesión',
-            headerStyle: { backgroundColor: COLORS.azulMarino },
-            headerTintColor: COLORS.blancoPuro,
-            headerBackTitleVisible: false
-          }}
-        />
-        <Stack.Screen
-          name="actRegistroUsuario"
-          component={ActRegistroUsuario}
-          options={{
-            headerShown: true,
-            title: 'Crear cuenta',
             headerStyle: { backgroundColor: COLORS.azulMarino },
             headerTintColor: COLORS.blancoPuro,
             headerBackTitleVisible: false

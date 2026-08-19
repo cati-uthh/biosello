@@ -64,6 +64,23 @@ export default function InicioScreen({ navigation }) {
         const idNegocioBase = usuario?.id_negocio || usuario?.negocio?.id_negocio;
         if (!idNegocioBase) return;
 
+        if (!esPerfilAdministrador(usuario)) {
+            const sucursalAsignada = {
+                id_negocio: idNegocioBase,
+                nombre_sucursal: usuario?.nombre_negocio || usuario?.negocio?.nombre_negocio || 'Sucursal asignada',
+                estatus_verificacion: usuario?.estatus_negocio || usuario?.negocio?.estatus_verificacion || null
+            };
+            setSucursales([sucursalAsignada]);
+            setSucursalActiva((actual) => (
+                String(actual?.id_negocio) === String(sucursalAsignada.id_negocio)
+                    && actual?.nombre_sucursal === sucursalAsignada.nombre_sucursal
+                    && actual?.estatus_verificacion === sucursalAsignada.estatus_verificacion
+                    ? actual
+                    : sucursalAsignada
+            ));
+            return;
+        }
+
         try {
             setCargandoSucursales(true);
             const response = await fetch(`${API_BASE_URL}/sucursales?id_negocio=${idNegocioBase}`, {
@@ -71,11 +88,19 @@ export default function InicioScreen({ navigation }) {
             });
             const result = await response.json();
 
-            if (response.ok && result.success && result.data.length > 0) {
+            if (response.ok && result.success && Array.isArray(result.data)) {
                 setSucursales(result.data);
-                if (!sucursalActiva) {
-                    setSucursalActiva(result.data[0]);
-                }
+                setSucursalActiva((actual) => {
+                    const encontrada = result.data.find(
+                        (sucursal) => String(sucursal.id_negocio) === String(actual?.id_negocio)
+                    );
+                    const siguiente = encontrada || result.data[0] || null;
+
+                    if (!actual || !siguiente) return siguiente;
+                    const claves = new Set([...Object.keys(actual), ...Object.keys(siguiente)]);
+                    const cambio = [...claves].some((clave) => actual[clave] !== siguiente[clave]);
+                    return cambio ? siguiente : actual;
+                });
             }
         } catch (error) {
             console.error('Error al cargar sucursales:', error);
@@ -151,33 +176,54 @@ export default function InicioScreen({ navigation }) {
                 </Animated.View>
 
                 <Animated.View style={{ opacity: fadeBotones, width: '100%', alignItems: 'center' }}>
-                    <TouchableOpacity style={styles.botonUsuario} onPress={() => navigation.navigate('actRegistroUsuario')}>
-                        <Text style={styles.textoBotonUsuario}>Crear cuenta personal</Text>
-                    </TouchableOpacity>
                     <TouchableOpacity style={styles.botonRegistrar} onPress={() => navigation.navigate('actRegistroNegocio')}>
-                        <Text style={styles.textoBotonRegistrar}>Registrar mi Negocio</Text>
+                        <Text style={styles.textoBotonRegistrar}>Registrar mi negocio</Text>
                     </TouchableOpacity>
-                    <Text style={styles.textoLogin}>
-                        ¿Ya tienes cuenta?{' '}
-                        <Text style={styles.linkLogin} onPress={() => navigation.navigate('actInicioSesion')}>
-                            Inicia sesión aquí.
-                        </Text>
-                    </Text>
+                    <TouchableOpacity style={styles.botonIniciarSesion} onPress={() => navigation.navigate('actInicioSesion')}>
+                        <Text style={styles.textoBotonIniciarSesion}>Iniciar sesión</Text>
+                    </TouchableOpacity>
                 </Animated.View>
             </View>
         );
     }
 
-    if (pantallaInterna === 'generar_qr') return <GenerarQR onVolver={() => setPantallaInterna('menu')} />;
-    if (pantallaInterna === 'registrar_lote') return <RegistrarLoteAnimal onVolver={() => setPantallaInterna('menu')} />;
-    if (pantallaInterna === 'mis_lotes') return <MisLotes onVolver={() => setPantallaInterna('menu')} />;
+    const idNegocioActivo = sucursalActiva?.id_negocio || usuario?.id_negocio || usuario?.negocio?.id_negocio;
+    const nombreNegocioActivo = sucursalActiva?.nombre_sucursal || usuario?.nombre_negocio || usuario?.negocio?.nombre_negocio;
+
+    if (pantallaInterna === 'generar_qr') {
+        return (
+            <GenerarQR
+                onVolver={() => setPantallaInterna('menu')}
+                idNegocio={idNegocioActivo}
+                nombreNegocio={nombreNegocioActivo}
+            />
+        );
+    }
+    if (pantallaInterna === 'registrar_lote') {
+        return (
+            <RegistrarLoteAnimal
+                onVolver={() => setPantallaInterna('menu')}
+                idNegocio={idNegocioActivo}
+                nombreNegocio={nombreNegocioActivo}
+            />
+        );
+    }
+    if (pantallaInterna === 'mis_lotes') {
+        return (
+            <MisLotes
+                onVolver={() => setPantallaInterna('menu')}
+                idNegocio={idNegocioActivo}
+                nombreNegocio={nombreNegocioActivo}
+            />
+        );
+    }
     if (pantallaInterna === 'sucursales') return <ActGestionSucursales onVolver={() => setPantallaInterna('menu')} />;
     if (pantallaInterna === 'empleados') {
         return (
             <GestionEmpleados
                 onVolver={() => setPantallaInterna('menu')}
-                idNegocio={sucursalActiva?.id_negocio || usuario?.id_negocio || usuario?.negocio?.id_negocio}
-                nombreNegocio={sucursalActiva?.nombre_sucursal || usuario?.nombre_negocio}
+                idNegocio={idNegocioActivo}
+                nombreNegocio={nombreNegocioActivo}
             />
         );
     }
@@ -192,6 +238,7 @@ export default function InicioScreen({ navigation }) {
         const dias = diasParaVencer(lote.fecha_vencimiento);
         return lote.estado === 'activo' && dias !== null && dias >= 0 && dias <= 3;
     });
+    const puedeCambiarSucursal = esPerfilAdministrador(usuario) && sucursales.length > 1;
 
     return (
         <ScrollView 
@@ -216,6 +263,10 @@ export default function InicioScreen({ navigation }) {
                 <TouchableOpacity 
                     style={styles.selectorSucursalBotonGrande} 
                     onPress={() => setModalSucursalesVisible(true)}
+                    disabled={!puedeCambiarSucursal}
+                    accessibilityRole="button"
+                    accessibilityLabel="Seleccionar sucursal activa"
+                    accessibilityState={{ disabled: !puedeCambiarSucursal }}
                 >
                     <View style={styles.iconoBotonSucursal}>
                         <Ionicons name="business" size={20} color={COLORS.blancoPuro} />
@@ -229,7 +280,9 @@ export default function InicioScreen({ navigation }) {
                     {sucursalActiva?.estatus_verificacion === 'aprobado' && (
                         <Ionicons name="checkmark-circle" size={20} color="#10b981" style={{ marginRight: 5 }} />
                     )}
-                    <Ionicons name="chevron-down" size={20} color={COLORS.azulMarino} />
+                    {puedeCambiarSucursal && (
+                        <Ionicons name="chevron-down" size={20} color={COLORS.azulMarino} />
+                    )}
                 </TouchableOpacity>
             </View>
 
@@ -401,12 +454,10 @@ const styles = StyleSheet.create({
     tituloInvitacion: { color: COLORS.blancoPuro, fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold, textAlign: 'center', marginBottom: 40 },
     iconoCuadrado: { width: 300, height: 300, borderRadius: 10, marginBottom: 40, backgroundColor: COLORS.blancoPuro, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8 },
     descripcionInvitacion: { color: '#e2e8f0', fontSize: SIZES.textoBase, textAlign: 'center', lineHeight: 24, marginBottom: 40, paddingHorizontal: 10 },
-    botonUsuario: { backgroundColor: COLORS.rojoIntenso, width: '100%', paddingVertical: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginBottom: 12 },
-    textoBotonUsuario: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, fontWeight: FONTS.bold },
-    botonRegistrar: { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.blancoPuro, width: '100%', paddingVertical: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginBottom: 25 },
+    botonRegistrar: { backgroundColor: COLORS.rojoIntenso, width: '100%', paddingVertical: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginBottom: 12 },
     textoBotonRegistrar: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, fontWeight: FONTS.bold },
-    textoLogin: { color: COLORS.blancoPuro, fontSize: 15 },
-    linkLogin: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, textDecorationLine: 'underline' },
+    botonIniciarSesion: { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.blancoPuro, width: '100%', paddingVertical: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginBottom: 25 },
+    textoBotonIniciarSesion: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, fontWeight: FONTS.bold },
     
     contenedorAdmin: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 15 },
     headerDashboard: { marginBottom: 15 },

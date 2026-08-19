@@ -134,7 +134,7 @@ const crearFormularioEdicion = (lote) => ({
     }
 });
 
-export default function MisLotes({ onVolver }) {
+export default function MisLotes({ onVolver, idNegocio, nombreNegocio }) {
     const { usuario } = useContext(AuthContext);
     const [lotes, setLotes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -150,9 +150,9 @@ export default function MisLotes({ onVolver }) {
     const [calendarioActivo, setCalendarioActivo] = useState(null);
 
     const idsSesion = useMemo(() => ({
-        idNegocio: usuario?.id_negocio || usuario?.negocio?.id_negocio,
+        idNegocio: idNegocio || usuario?.id_negocio || usuario?.negocio?.id_negocio,
         idEmpleado: usuario?.id_usuario || usuario?.id
-    }), [usuario]);
+    }), [idNegocio, usuario]);
 
     const cargarLotes = useCallback(async () => {
         try {
@@ -265,6 +265,7 @@ export default function MisLotes({ onVolver }) {
                 body: JSON.stringify({
                     id_lote: lote.id_lote,
                     estado,
+                    id_negocio: idsSesion.idNegocio || null,
                     id_usuario: idsSesion.idEmpleado || null
                 })
             });
@@ -311,6 +312,7 @@ export default function MisLotes({ onVolver }) {
                 headers: { 'Content-Type': 'application/json', ...getAuthHeaders(usuario) },
                 body: JSON.stringify({
                     id_lote: loteSeleccionado.id_lote,
+                    id_negocio: idsSesion.idNegocio || null,
                     id_usuario: idsSesion.idEmpleado || null,
                     lote: {
                         ...formEdicion.lote,
@@ -350,6 +352,7 @@ export default function MisLotes({ onVolver }) {
         setEliminandoId(lote.id_lote);
         try {
             const params = new URLSearchParams({ id_lote: String(lote.id_lote) });
+            if (idsSesion.idNegocio) params.append('id_negocio', String(idsSesion.idNegocio));
             if (idsSesion.idEmpleado) params.append('id_usuario', String(idsSesion.idEmpleado));
             const response = await fetch(`${API_BASE_URL}/lotes?${params.toString()}`, {
                 method: 'DELETE',
@@ -440,7 +443,9 @@ export default function MisLotes({ onVolver }) {
             <View style={styles.encabezadoFila}>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.titulo}>Lotes Registrados</Text>
-                    <Text style={styles.subtitulo}>Consulta lotes, estados y recomendaciones de conservación.</Text>
+                    <Text style={styles.subtitulo}>
+                        Consulta lotes, estados y recomendaciones de conservación{nombreNegocio ? ` · ${nombreNegocio}` : ''}.
+                    </Text>
                 </View>
                 <TouchableOpacity style={styles.botonIcono} onPress={refrescar}>
                     <Ionicons name="refresh" size={20} color="#002855" />

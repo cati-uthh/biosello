@@ -9,18 +9,38 @@ export const getSessionIds = (usuario) => ({
 
 const limpiar = (value) => String(value ?? '').trim();
 
+const normalizarBooleano = (value) => {
+    if (typeof value === 'boolean') return value;
+
+    const texto = limpiar(value).toLowerCase();
+    return ['true', '1', 'si', 'sí', 'yes', 'on'].includes(texto);
+};
+
 const getLoteId = (lote) => limpiar(lote?.id_lote || lote?.lote_id || lote?.id);
 const getCodigoLote = (lote) => limpiar(lote?.codigo_lote || lote?.codigo || lote?.lote);
 
-export const crearValorQR = (lote, usuario) => {
-    const { idNegocio } = getSessionIds(usuario);
-    const params = new URLSearchParams();
+export const crearValorQR = (lote, usuario, idNegocioSeleccionado = null, opciones = {}) => {
+    const { idNegocio: idNegocioSesion } = getSessionIds(usuario);
+    const idCorte = limpiar(opciones.id_corte ?? opciones.idCorte ?? lote?.id_corte);
+    const valor = {
+        tipo: 'biosello_lote',
+        version: 1,
+        id_lote: getLoteId(lote),
+        id_corte: idCorte || null,
+        incluir_tip_cuidado: normalizarBooleano(
+            opciones.incluir_tip_cuidado ?? opciones.incluirTipCuidado
+        ),
+        incluir_recomendacion: normalizarBooleano(
+            opciones.incluir_recomendacion ?? opciones.incluirRecomendacion
+        )
+    };
+    const codigoLote = getCodigoLote(lote);
+    const idNegocio = idNegocioSeleccionado || idNegocioSesion;
 
-    if (getLoteId(lote)) params.append('id_lote', getLoteId(lote));
-    if (getCodigoLote(lote)) params.append('codigo_lote', getCodigoLote(lote));
-    if (idNegocio) params.append('id_negocio', String(idNegocio));
+    if (codigoLote) valor.codigo_lote = codigoLote;
+    if (idNegocio) valor.id_negocio = String(idNegocio);
 
-    return `https://biosello.app/trazabilidad?${params.toString()}`;
+    return JSON.stringify(valor);
 };
 
 const identificadorDesdeObjeto = (objeto, raw) => {
@@ -28,13 +48,38 @@ const identificadorDesdeObjeto = (objeto, raw) => {
 
     const idLote = limpiar(objeto.id_lote || objeto.lote_id || objeto.idLote || objeto.id);
     const idNegocio = limpiar(objeto.id_negocio || objeto.idNegocio || objeto.negocio);
+    const idCorte = limpiar(objeto.id_corte || objeto.idCorte || objeto.corte);
+    const incluirTipCuidado = normalizarBooleano(
+        objeto.incluir_tip_cuidado ?? objeto.incluirTipCuidado
+    );
+    const incluirRecomendacion = normalizarBooleano(
+        objeto.incluir_recomendacion ?? objeto.incluirRecomendacion
+    );
     const codigoLote = limpiar(
         objeto.codigo_lote || objeto.codigoLote || objeto.codigo || objeto.lote || objeto.code
     );
 
     if (!idLote && !codigoLote) return null;
-    return { idLote, idNegocio, codigoLote, raw };
+    return {
+        idLote,
+        idNegocio,
+        codigoLote,
+        idCorte,
+        incluirTipCuidado,
+        incluirRecomendacion,
+        raw
+    };
 };
+
+const identificadorPlano = (codigoLote, raw) => ({
+    idLote: '',
+    idNegocio: '',
+    codigoLote: limpiar(codigoLote),
+    idCorte: '',
+    incluirTipCuidado: false,
+    incluirRecomendacion: false,
+    raw
+});
 
 export const extraerIdentificadorQR = (contenido) => {
     const raw = limpiar(contenido);
@@ -58,7 +103,7 @@ export const extraerIdentificadorQR = (contenido) => {
             if (identificador) return identificador;
 
             const pathCode = limpiar(url.pathname.split('/').filter(Boolean).pop());
-            if (pathCode) return { idLote: '', codigoLote: pathCode, raw };
+            if (pathCode) return identificadorPlano(pathCode, raw);
         }
     } catch (error) {
         // Si no es una URL valida, seguimos con otros formatos.
@@ -73,7 +118,7 @@ export const extraerIdentificadorQR = (contenido) => {
         if (identificador) return identificador;
     }
 
-    return { idLote: '', codigoLote: raw, raw };
+    return identificadorPlano(raw, raw);
 };
 
 const normalizarRespuestaLotes = (result) => {

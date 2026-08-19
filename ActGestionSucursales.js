@@ -15,11 +15,18 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
+import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
 
-const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
+const CLAVE_PASS_GUARDADA = 'biosello_usuario_pass';
+const CLAVE_BIOMETRIA_ACTIVADA = 'biosello_biometria_activada';
+const CLAVE_USUARIO_GUARDADO = 'biosello_usuario_identificador';
+const MAXIMO_DOCUMENTO_BYTES = 5 * 1024 * 1024;
+
+const normalizarIdentificador = (valor) => String(valor || '').trim().toLowerCase();
 
 export default function ActGestionSucursales({ onVolver }) {
     const { usuario } = useContext(AuthContext);
@@ -58,7 +65,9 @@ export default function ActGestionSucursales({ onVolver }) {
 
         try {
             setCargando(true);
-            const response = await fetch(`${API_BASE_URL}/sucursales?id_negocio=${idNegocioBase}`);
+            const response = await fetch(`${API_BASE_URL}/sucursales?id_negocio=${idNegocioBase}`, {
+                headers: getAuthHeaders(usuario)
+            });
             const result = await response.json();
 
             if (response.ok && result.success) {
@@ -80,6 +89,19 @@ export default function ActGestionSucursales({ onVolver }) {
 
             if (!result.canceled) {
                 const file = result.assets[0];
+                let tamanioArchivo = Number(file.size);
+                if (!Number.isFinite(tamanioArchivo) || tamanioArchivo <= 0) {
+                    const info = await FileSystem.getInfoAsync(file.uri);
+                    tamanioArchivo = Number(info.size);
+                }
+                if (!Number.isFinite(tamanioArchivo) || tamanioArchivo <= 0) {
+                    Alert.alert('Archivo no válido', 'No fue posible comprobar el tamaño del documento. Selecciona otro archivo.');
+                    return;
+                }
+                if (tamanioArchivo > MAXIMO_DOCUMENTO_BYTES) {
+                    Alert.alert('Archivo demasiado grande', 'El documento no debe superar 5 MB.');
+                    return;
+                }
                 const tempUri = FileSystem.documentDirectory + 'temp_sucursal_' + Date.now();
 
                 await FileSystem.copyAsync({ from: file.uri, to: tempUri });
@@ -111,7 +133,7 @@ export default function ActGestionSucursales({ onVolver }) {
         try {
             const response = await fetch(`${API_BASE_URL}/sucursales`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders(usuario) },
                 body: JSON.stringify({
                     id_negocio_matriz: idNegocioMatriz,
                     nombre_sucursal: formSucursal.nombre_sucursal.trim(),
@@ -150,7 +172,7 @@ export default function ActGestionSucursales({ onVolver }) {
         try {
             const response = await fetch(`${API_BASE_URL}/sucursales`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders(usuario) },
                 body: JSON.stringify({
                     id_sucursal: sucursalEditar.id_negocio,
                     nombre_sucursal: sucursalEditar.nombre_sucursal.trim(),
@@ -194,16 +216,38 @@ export default function ActGestionSucursales({ onVolver }) {
     // Advertencia 2 -> Autenticación Biométrica o Contraseña
     const autenticarParaBorrado = async () => {
         try {
-            const compatible = await LocalAuthentication.hasHardwareAsync();
-            const registrado = await LocalAuthentication.isEnrolledAsync();
+            const [compatible, registrado, biometriaActivada, contrasenaGuardada, identificadorGuardado] = await Promise.all([
+                LocalAuthentication.hasHardwareAsync(),
+                LocalAuthentication.isEnrolledAsync(),
+                SecureStore.getItemAsync(CLAVE_BIOMETRIA_ACTIVADA),
+                SecureStore.getItemAsync(CLAVE_PASS_GUARDADA),
+                SecureStore.getItemAsync(CLAVE_USUARIO_GUARDADO)
+            ]);
+            const identificadoresSesion = [
+                usuario?.email,
+                usuario?.correo,
+                usuario?.telefono,
+                usuario?.telefono_usuario,
+                usuario?.identificador
+            ].map(normalizarIdentificador).filter(Boolean);
+            const credencialPerteneceUsuario = identificadoresSesion.includes(
+                normalizarIdentificador(identificadorGuardado)
+            );
 
-            if (compatible && registrado) {
+            if (
+                compatible
+                && registrado
+                && biometriaActivada === 'true'
+                && contrasenaGuardada
+                && credencialPerteneceUsuario
+            ) {
                 const result = await LocalAuthentication.authenticateAsync({
                     promptMessage: `Confirmar borrado de ${sucursalAEliminar?.nombre_sucursal}`,
                     fallbackLabel: 'Usar contraseña'
                 });
 
                 if (result.success) {
+                    setPasswordConfirm(contrasenaGuardada);
                     setPasoBorrado(3); // Salta directamente al paso 3 de confirmación
                     return;
                 }
@@ -219,7 +263,7 @@ export default function ActGestionSucursales({ onVolver }) {
         try {
             const response = await fetch(`${API_BASE_URL}/sucursales`, {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders(usuario) },
                 body: JSON.stringify({
                     id_sucursal: sucursalAEliminar.id_negocio,
                     id_usuario: usuario?.id_usuario || usuario?.id,
@@ -230,6 +274,19 @@ export default function ActGestionSucursales({ onVolver }) {
             const result = await response.json();
 
             if (!response.ok || !result.success) {
+                const requiereContrasenaManual = response.status === 401
+                    || /contrase|credencial|autentic/i.test(String(result.error || ''));
+
+                if (requiereContrasenaManual) {
+                    setPasswordConfirm('');
+                    setPasoBorrado(2);
+                    Alert.alert(
+                        'Confirma tu contraseña',
+                        'La credencial biométrica guardada ya no es válida. Ingresa tu contraseña actual para continuar.'
+                    );
+                    return;
+                }
+
                 Alert.alert('Error', result.error || 'No se pudo eliminar la sucursal.');
                 return;
             }
