@@ -37,3 +37,17 @@ export const getAuthHeaders = (usuario) => {
     const token = getAuthToken(usuario);
     return token ? { Authorization: `Bearer ${token}` } : {};
 };
+
+export const normalizarPerfilAcceso = (perfil) => {
+    const valor = String(perfil || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase();
+
+    if (valor === 'admin' || valor === 'administrador') return 'admin';
+    if (valor === 'empleado' || valor === 'employee') return 'empleado';
+    return valor;
+};
+
+export const esPerfilAdministrador = (usuario) => normalizarPerfilAcceso(usuario?.perfil) === 'admin';

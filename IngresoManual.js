@@ -9,7 +9,8 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
+    useWindowDimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Camera } from 'expo-camera';
@@ -17,6 +18,7 @@ import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
 import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
 import { extraerIdentificadorQR } from './src/utils/qr';
+import { obtenerUriImagenAnimal } from './src/utils/imagenAnimal';
 
 const formatearParaUI = (fecha) => {
     if (!fecha) return 'N/D';
@@ -60,6 +62,7 @@ const obtenerAnimalRA = (datos) => {
 
 export default function IngresoManual({ route, navigation }) {
     const { usuario } = useContext(AuthContext);
+    const { width } = useWindowDimensions();
     // Si la pantalla fue abierta por el Escáner, recibe el código aquí
     const codigoEscaneado = route?.params?.codigoQR || '';
     const consultaDesdeQR = route?.params?.origenConsulta === 'qr';
@@ -69,8 +72,14 @@ export default function IngresoManual({ route, navigation }) {
     const [datosLote, setDatosLote] = useState(null);
     const [errorData, setErrorData] = useState(null);
     const [abriendoRA, setAbriendoRA] = useState(false);
+    const [errorImagenAnimal, setErrorImagenAnimal] = useState(false);
+    const [reintentosImagen, setReintentosImagen] = useState(0);
 
     const animalRA = obtenerAnimalRA(datosLote);
+    const imagenAnimalUrl = obtenerUriImagenAnimal(datosLote);
+    const multimediaCompacta = width < 380;
+    const anchoImagen = width >= 720 ? 190 : multimediaCompacta ? 118 : 138;
+    const alturaMultimedia = width >= 720 ? 190 : multimediaCompacta ? 132 : 166;
 
     // Si viene del escáner con datos, busca automáticamente
     useEffect(() => {
@@ -78,6 +87,11 @@ export default function IngresoManual({ route, navigation }) {
             handleBuscar(codigoEscaneado);
         }
     }, [codigoEscaneado]);
+
+    useEffect(() => {
+        setErrorImagenAnimal(false);
+        setReintentosImagen(0);
+    }, [imagenAnimalUrl]);
 
     const handleBuscar = async (codigoABuscar = codigo) => {
         const identificador = extraerIdentificadorQR(codigoABuscar);
@@ -284,34 +298,103 @@ export default function IngresoManual({ route, navigation }) {
                         </View>
                     </View>
 
-                    {consultaDesdeQR && animalRA && (
-                        <TouchableOpacity
-                            style={[styles.botonRA, abriendoRA && styles.botonDeshabilitado]}
-                            onPress={abrirRealidadAumentada}
-                            disabled={abriendoRA}
-                            activeOpacity={0.78}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Ver ${animalRA === 'cerdo' ? 'cerdo' : 'vaca'} en Realidad Aumentada`}
-                            accessibilityState={{ disabled: abriendoRA, busy: abriendoRA }}
-                        >
-                            <View style={styles.iconoRA}>
-                                <Ionicons name="cube-outline" size={23} color={COLORS.blancoPuro} />
+                    {consultaDesdeQR && (
+                        <View style={styles.tarjetaMultimedia}>
+                            <View style={styles.encabezadoTarjeta}>
+                                <Ionicons name="image" size={18} color={COLORS.azulCeruleo} />
+                                <Text style={styles.tituloTarjetaDatos}>Fotografía y experiencia RA</Text>
                             </View>
-                            <View style={styles.contenidoBotonRA}>
-                                <Text style={styles.tituloBotonRA}>Ver en Realidad Aumentada</Text>
-                                <Text style={styles.subtituloBotonRA}>
-                                    Visualiza una representación a escala del animal
-                                </Text>
+                            <View style={styles.filaMultimedia}>
+                                <View
+                                    style={[
+                                        styles.marcoImagenAnimal,
+                                        { width: anchoImagen, height: alturaMultimedia }
+                                    ]}
+                                >
+                                    {imagenAnimalUrl && !errorImagenAnimal ? (
+                                        <Image
+                                            source={{ uri: imagenAnimalUrl }}
+                                            key={`${imagenAnimalUrl}-${reintentosImagen}`}
+                                            style={styles.imagenAnimal}
+                                            resizeMode="cover"
+                                            onError={() => setErrorImagenAnimal(true)}
+                                            accessibilityLabel="Fotografía registrada del animal"
+                                        />
+                                    ) : (
+                                        <View style={styles.imagenNoDisponible}>
+                                            <Ionicons name="image-outline" size={32} color="#94a3b8" />
+                                            <Text style={styles.tituloSinImagen}>
+                                                {imagenAnimalUrl && errorImagenAnimal ? 'No se pudo cargar' : 'Sin fotografía'}
+                                            </Text>
+                                            <Text style={styles.textoSinImagen}>
+                                                {imagenAnimalUrl && errorImagenAnimal
+                                                    ? 'Revisa tu conexión e intenta otra vez.'
+                                                    : 'No hay una imagen disponible para este lote.'}
+                                            </Text>
+                                            {imagenAnimalUrl && errorImagenAnimal && (
+                                                <TouchableOpacity
+                                                    style={styles.botonReintentarImagen}
+                                                    onPress={() => {
+                                                        setErrorImagenAnimal(false);
+                                                        setReintentosImagen((valor) => valor + 1);
+                                                    }}
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel="Reintentar carga de fotografía"
+                                                >
+                                                    <Text style={styles.textoReintentarImagen}>Reintentar</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+                                    )}
+                                </View>
+
+                                {animalRA && (
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.botonRA,
+                                            { height: alturaMultimedia },
+                                            abriendoRA && styles.botonDeshabilitado
+                                        ]}
+                                        onPress={abrirRealidadAumentada}
+                                        disabled={abriendoRA}
+                                        activeOpacity={0.78}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`Ver ${animalRA === 'cerdo' ? 'cerdo' : 'vaca'} en Realidad Aumentada`}
+                                        accessibilityState={{ disabled: abriendoRA, busy: abriendoRA }}
+                                    >
+                                        <View style={styles.iconoRA}>
+                                            <Ionicons name="cube-outline" size={25} color={COLORS.blancoPuro} />
+                                        </View>
+                                        <Text style={styles.tituloBotonRA}>Realidad Aumentada</Text>
+                                        {!multimediaCompacta && (
+                                            <Text style={styles.subtituloBotonRA}>
+                                                Observa el animal en una representación a escala.
+                                            </Text>
+                                        )}
+                                        <View style={styles.accionRA}>
+                                            {abriendoRA
+                                                ? <ActivityIndicator size="small" color={COLORS.blancoPuro} />
+                                                : <><Text style={styles.textoAccionRA}>Abrir RA</Text><Ionicons name="arrow-forward" size={16} color={COLORS.blancoPuro} /></>}
+                                        </View>
+                                    </TouchableOpacity>
+                                )}
                             </View>
-                            {abriendoRA
-                                ? <ActivityIndicator size="small" color={COLORS.blancoPuro} />
-                                : <Ionicons name="chevron-forward" size={21} color={COLORS.blancoPuro} />}
-                        </TouchableOpacity>
+                        </View>
                     )}
 
                     {/* BOTÓN PARA LIMPIAR Y VOLVER A BUSCAR */}
-                    <TouchableOpacity style={[styles.primaryButton, {marginTop: 15}]} onPress={() => { setDatosLote(null); setCodigo(''); }}>
-                        <Text style={styles.buttonText}>Realizar otra búsqueda</Text>
+                    <TouchableOpacity
+                        style={[styles.primaryButton, {marginTop: 15}]}
+                        onPress={() => {
+                            if (consultaDesdeQR) {
+                                navigation.goBack();
+                                return;
+                            }
+                            setDatosLote(null);
+                            setCodigo('');
+                        }}
+                    >
+                        <Text style={styles.buttonText}>{consultaDesdeQR ? 'Escanear otro código' : 'Realizar otra búsqueda'}</Text>
                     </TouchableOpacity>
                 </View>
             )}
@@ -341,7 +424,7 @@ const styles = StyleSheet.create({
     textoError: { fontSize: 15, color: '#b91c1c', textAlign: 'center', marginTop: 8, lineHeight: 22 },
 
     // Estilos de la Ficha Técnica (Resultados)
-    contenedorResultados: { paddingTop: 20, paddingHorizontal: 16 },
+    contenedorResultados: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingTop: 20, paddingHorizontal: 16 },
     tarjetaAprobada: { flexDirection: 'row', backgroundColor: '#ecfdf5', borderWidth: 1, borderColor: '#6ee7b7', padding: 15, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
     textoAprobado: { fontSize: 16, fontWeight: '800', color: '#047857' },
 
@@ -355,10 +438,20 @@ const styles = StyleSheet.create({
     valorTabla: { fontSize: 13, color: '#1e293b', fontWeight: '600', flex: 1.2, textAlign: 'right' },
     valorDestacado: { color: COLORS.azulMarino, fontWeight: '900', fontSize: 14 },
 
-    botonRA: { width: '100%', minHeight: 76, marginTop: 4, marginBottom: 8, paddingVertical: 13, paddingHorizontal: 14, borderRadius: SIZES.radioTarjeta, backgroundColor: COLORS.azulCeruleo, flexDirection: 'row', alignItems: 'center', elevation: 2 },
+    tarjetaMultimedia: { backgroundColor: COLORS.blancoPuro, borderRadius: SIZES.radioTarjeta, borderWidth: 1, borderColor: '#dbe3ec', marginBottom: 15, overflow: 'hidden', elevation: 1 },
+    filaMultimedia: { flexDirection: 'row', alignItems: 'stretch', gap: 10, padding: 12 },
+    marcoImagenAnimal: { flexShrink: 0, borderRadius: SIZES.radioBoton, overflow: 'hidden', backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#dbe3ec' },
+    imagenAnimal: { width: '100%', height: '100%' },
+    imagenNoDisponible: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+    tituloSinImagen: { color: '#475569', fontSize: 12, fontWeight: FONTS.bold, marginTop: 5, textAlign: 'center' },
+    textoSinImagen: { color: '#94a3b8', fontSize: 9, lineHeight: 13, textAlign: 'center', marginTop: 2 },
+    botonReintentarImagen: { minHeight: 28, marginTop: 5, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center', borderRadius: 6, backgroundColor: '#e2e8f0' },
+    textoReintentarImagen: { color: '#475569', fontSize: 10, fontWeight: FONTS.bold },
+    botonRA: { flex: 1, minWidth: 0, paddingVertical: 10, paddingHorizontal: 10, borderRadius: SIZES.radioBoton, backgroundColor: COLORS.azulCeruleo, alignItems: 'flex-start', justifyContent: 'center', elevation: 2 },
     botonDeshabilitado: { opacity: 0.68 },
-    iconoRA: { width: 42, height: 42, borderRadius: SIZES.radioBoton, backgroundColor: 'rgba(255, 255, 255, 0.16)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-    contenidoBotonRA: { flex: 1, paddingRight: 8 },
-    tituloBotonRA: { color: COLORS.blancoPuro, fontSize: 15, fontWeight: FONTS.bold },
-    subtituloBotonRA: { color: '#e0f2fe', fontSize: 11, lineHeight: 16, marginTop: 3 }
+    iconoRA: { width: 40, height: 40, borderRadius: SIZES.radioBoton, backgroundColor: 'rgba(255, 255, 255, 0.16)', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+    tituloBotonRA: { color: COLORS.blancoPuro, fontSize: 14, fontWeight: FONTS.bold },
+    subtituloBotonRA: { color: '#e0f2fe', fontSize: 10, lineHeight: 14, marginTop: 3 },
+    accionRA: { minHeight: 30, marginTop: 7, flexDirection: 'row', alignItems: 'center', gap: 5 },
+    textoAccionRA: { color: COLORS.blancoPuro, fontSize: 11, fontWeight: FONTS.bold }
 });
