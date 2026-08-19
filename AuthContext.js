@@ -1,6 +1,10 @@
 import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
-import { normalizarUsuarioSesion } from './src/utils/auth';
+import {
+  esTokenSesionVigente,
+  normalizarUsuarioSesion,
+  obtenerExpiracionToken
+} from './src/utils/auth';
 
 const SESSION_FILE = `${FileSystem.documentDirectory}biosello_session.json`;
 
@@ -13,7 +17,8 @@ const leerSesionGuardada = async () => {
 
     const contenido = await FileSystem.readAsStringAsync(SESSION_FILE);
     const session = contenido ? JSON.parse(contenido) : null;
-    return session?.usuario ? normalizarUsuarioSesion(session.usuario) : null;
+    const usuario = session?.usuario ? normalizarUsuarioSesion(session.usuario) : null;
+    return usuario && esTokenSesionVigente(usuario) ? usuario : null;
   } catch (error) {
     return null;
   }
@@ -66,6 +71,25 @@ export const AuthProvider = ({ children }) => {
     if (sesionCargando) return;
     guardarSesion(sesionActiva && usuario ? usuario : null);
   }, [sesionActiva, sesionCargando, usuario]);
+
+  useEffect(() => {
+    if (!sesionActiva || !usuario) return undefined;
+
+    const expiracion = obtenerExpiracionToken(usuario);
+    const restante = expiracion ? expiracion - Date.now() : 0;
+    if (restante <= 0) {
+      setUsuario(null);
+      setSesionActiva(false);
+      return undefined;
+    }
+
+    const temporizador = setTimeout(() => {
+      setUsuario(null);
+      setSesionActiva(false);
+    }, restante);
+
+    return () => clearTimeout(temporizador);
+  }, [sesionActiva, usuario]);
 
   const iniciarSesion = useCallback((data) => {
     const usuarioSesion = normalizarUsuarioSesion(data);

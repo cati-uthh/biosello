@@ -66,6 +66,9 @@ export default function IngresoManual({ route, navigation }) {
     // Si la pantalla fue abierta por el Escáner, recibe el código aquí
     const codigoEscaneado = route?.params?.codigoQR || '';
     const consultaDesdeQR = route?.params?.origenConsulta === 'qr';
+    const idCorteEscaneado = route?.params?.id_corte || '';
+    const incluirTipCuidadoEscaneado = route?.params?.incluir_tip_cuidado === true;
+    const incluirRecomendacionEscaneada = route?.params?.incluir_recomendacion === true;
 
     const [codigo, setCodigo] = useState(codigoEscaneado);
     const [loading, setLoading] = useState(false);
@@ -77,6 +80,11 @@ export default function IngresoManual({ route, navigation }) {
 
     const animalRA = obtenerAnimalRA(datosLote);
     const imagenAnimalUrl = obtenerUriImagenAnimal(datosLote);
+    const recomendacionCorte = datosLote?.tip_recomendacion
+        || datosLote?.recomendacion
+        || datosLote?.detalles_trazabilidad?.tip_recomendacion
+        || datosLote?.detalles_trazabilidad?.recomendacion
+        || null;
     const multimediaCompacta = width < 380;
     const anchoImagen = width >= 720 ? 190 : multimediaCompacta ? 118 : 138;
     const alturaMultimedia = width >= 720 ? 190 : multimediaCompacta ? 132 : 166;
@@ -107,13 +115,25 @@ export default function IngresoManual({ route, navigation }) {
         setDatosLote(null);
 
         try {
-            const idNumerico = parseInt(idLimpiado, 10);
-            if (Number.isNaN(idNumerico)) {
+            const idTexto = String(idLimpiado).trim();
+            if (!/^\d+$/.test(idTexto)) {
                 setErrorData('El código debe contener un identificador numérico de lote.');
                 return;
             }
+            const idNumerico = Number(idTexto);
+            if (!Number.isSafeInteger(idNumerico) || idNumerico <= 0) {
+                setErrorData('El identificador del lote no es válido.');
+                return;
+            }
 
-            const response = await fetch(`${API_BASE_URL}/obtenerTrazabilidad?id_lote=${idNumerico}`, {
+            const params = new URLSearchParams({ id_lote: String(idNumerico) });
+            if (consultaDesdeQR) {
+                if (idCorteEscaneado) params.append('id_corte', String(idCorteEscaneado));
+                params.append('incluir_tip_cuidado', String(incluirTipCuidadoEscaneado));
+                params.append('incluir_recomendacion', String(incluirRecomendacionEscaneada));
+            }
+
+            const response = await fetch(`${API_BASE_URL}/obtenerTrazabilidad?${params.toString()}`, {
                 headers: getAuthHeaders(usuario)
             });
             const result = await response.json();
@@ -251,53 +271,6 @@ export default function IngresoManual({ route, navigation }) {
             {/* 4. VISTA DE RESULTADOS (Ficha Técnica de Trazabilidad) */}
             {datosLote && !loading && (
                 <View style={styles.contenedorResultados}>
-                    <View style={styles.tarjetaAprobada}>
-                        <Ionicons name="checkmark-circle" size={28} color="#10b981" style={{ marginRight: 8 }} />
-                        <Text style={styles.textoAprobado}>Producto Verificado</Text>
-                    </View>
-
-                    {/* SECCIÓN 1: PRODUCTO */}
-                    <View style={styles.tarjetaDatos}>
-                        <View style={styles.encabezadoTarjeta}>
-                            <Ionicons name="cube" size={18} color={COLORS.azulMarino} />
-                            <Text style={styles.tituloTarjetaDatos}>Datos del Producto</Text>
-                        </View>
-                        <View style={styles.cuerpoTarjeta}>
-                            <FilaTabla label="Código Rastreo" valor={codigo} destacar />
-                            <FilaTabla label="Lote Interno" valor={datosLote.lote_id} />
-                            <FilaTabla label="Producto Comercial" valor={datosLote.producto} />
-                            <FilaTabla label="Establecimiento" valor={datosLote.detalles_trazabilidad?.establecimiento} />
-                            <FilaTabla label="Fecha de Producción" valor={formatearParaUI(datosLote.fecha_empaque)} />
-                        </View>
-                    </View>
-
-                    {/* SECCIÓN 2: ORIGEN Y PRODUCTOR */}
-                    <View style={styles.tarjetaDatos}>
-                        <View style={styles.encabezadoTarjeta}>
-                            <Ionicons name="leaf" size={18} color="#16a34a" />
-                            <Text style={styles.tituloTarjetaDatos}>Origen y Productor</Text>
-                        </View>
-                        <View style={styles.cuerpoTarjeta}>
-                            <FilaTabla label="Productor" valor={datosLote.detalles_trazabilidad?.productor} />
-                            <FilaTabla label="UPP Origen" valor={datosLote.detalles_trazabilidad?.upp_rancho} />
-                            <FilaTabla label="Procedencia" valor={datosLote.detalles_trazabilidad?.procedencia} />
-                        </View>
-                    </View>
-
-                    {/* SECCIÓN 3: ANIMAL Y LOGÍSTICA */}
-                    <View style={styles.tarjetaDatos}>
-                        <View style={styles.encabezadoTarjeta}>
-                            <Ionicons name="paw" size={18} color="#ca8a04" />
-                            <Text style={styles.tituloTarjetaDatos}>Trazabilidad de Res/Cerdo</Text>
-                        </View>
-                        <View style={styles.cuerpoTarjeta}>
-                            <FilaTabla label="Especie" valor={datosLote.detalles_trazabilidad?.especie} />
-                            <FilaTabla label="Arete (SINIIGA)" valor={datosLote.detalles_trazabilidad?.arete_siniga} destacar />
-                            <FilaTabla label="Guía Tránsito" valor={datosLote.detalles_trazabilidad?.guia_reemo} />
-                            <FilaTabla label="Rastro Sacrificio" valor={datosLote.detalles_trazabilidad?.sacrificio_rastro} />
-                        </View>
-                    </View>
-
                     {consultaDesdeQR && (
                         <View style={styles.tarjetaMultimedia}>
                             <View style={styles.encabezadoTarjeta}>
@@ -381,6 +354,65 @@ export default function IngresoManual({ route, navigation }) {
                             </View>
                         </View>
                     )}
+
+                    <View style={styles.tarjetaAprobada}>
+                        <Ionicons name="checkmark-circle" size={28} color="#10b981" style={{ marginRight: 8 }} />
+                        <Text style={styles.textoAprobado}>Producto Verificado</Text>
+                    </View>
+
+                    {/* SECCIÓN 1: PRODUCTO */}
+                    <View style={styles.tarjetaDatos}>
+                        <View style={styles.encabezadoTarjeta}>
+                            <Ionicons name="cube" size={18} color={COLORS.azulMarino} />
+                            <Text style={styles.tituloTarjetaDatos}>Datos del Producto</Text>
+                        </View>
+                        <View style={styles.cuerpoTarjeta}>
+                            <FilaTabla label="Código Rastreo" valor={codigo} destacar />
+                            <FilaTabla label="Lote Interno" valor={datosLote.lote_id} />
+                            <FilaTabla label="Producto Comercial" valor={datosLote.producto} />
+                            <FilaTabla label="Establecimiento" valor={datosLote.detalles_trazabilidad?.establecimiento} />
+                            <FilaTabla label="Fecha de Producción" valor={formatearParaUI(datosLote.fecha_empaque)} />
+                        </View>
+                    </View>
+
+                    {consultaDesdeQR && recomendacionCorte && (
+                        <View style={styles.tarjetaDatos}>
+                            <View style={styles.encabezadoTarjeta}>
+                                <Ionicons name="restaurant" size={18} color="#b45309" />
+                                <Text style={styles.tituloTarjetaDatos}>Recomendaciones del corte</Text>
+                            </View>
+                            <View style={styles.cuerpoTarjeta}>
+                                <FilaTabla label="Consejo" valor={recomendacionCorte} />
+                            </View>
+                        </View>
+                    )}
+
+                    {/* SECCIÓN 2: ORIGEN Y PRODUCTOR */}
+                    <View style={styles.tarjetaDatos}>
+                        <View style={styles.encabezadoTarjeta}>
+                            <Ionicons name="leaf" size={18} color="#16a34a" />
+                            <Text style={styles.tituloTarjetaDatos}>Origen y Productor</Text>
+                        </View>
+                        <View style={styles.cuerpoTarjeta}>
+                            <FilaTabla label="Productor" valor={datosLote.detalles_trazabilidad?.productor} />
+                            <FilaTabla label="UPP Origen" valor={datosLote.detalles_trazabilidad?.upp_rancho} />
+                            <FilaTabla label="Procedencia" valor={datosLote.detalles_trazabilidad?.procedencia} />
+                        </View>
+                    </View>
+
+                    {/* SECCIÓN 3: ANIMAL Y LOGÍSTICA */}
+                    <View style={styles.tarjetaDatos}>
+                        <View style={styles.encabezadoTarjeta}>
+                            <Ionicons name="paw" size={18} color="#ca8a04" />
+                            <Text style={styles.tituloTarjetaDatos}>Trazabilidad de Res/Cerdo</Text>
+                        </View>
+                        <View style={styles.cuerpoTarjeta}>
+                            <FilaTabla label="Especie" valor={datosLote.detalles_trazabilidad?.especie} />
+                            <FilaTabla label="Arete (SINIIGA)" valor={datosLote.detalles_trazabilidad?.arete_siniga} destacar />
+                            <FilaTabla label="Guía Tránsito" valor={datosLote.detalles_trazabilidad?.guia_reemo} />
+                            <FilaTabla label="Rastro Sacrificio" valor={datosLote.detalles_trazabilidad?.sacrificio_rastro} />
+                        </View>
+                    </View>
 
                     {/* BOTÓN PARA LIMPIAR Y VOLVER A BUSCAR */}
                     <TouchableOpacity

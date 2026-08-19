@@ -13,6 +13,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from './AuthContext';
 import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
+import { crearValorQR } from './src/utils/qr';
 
 // PALETA OFICIAL BIOSELLO (SIN AMARILLO)
 const PALETA = {
@@ -36,8 +37,9 @@ const formatearParaUI = (fecha) => {
     return fecha;
 };
 
-export default function GenerarQR({ onVolver }) {
+export default function GenerarQR({ onVolver, idNegocio, nombreNegocio }) {
     const { usuario } = useContext(AuthContext);
+    const idNegocioActivo = idNegocio || usuario?.id_negocio || usuario?.negocio?.id_negocio || null;
     const [lotes, setLotes] = useState([]);
     const [cargandoLista, setCargandoLista] = useState(true);
     const [loteSeleccionado, setLoteSeleccionado] = useState(null);
@@ -57,15 +59,14 @@ export default function GenerarQR({ onVolver }) {
 
     useEffect(() => {
         obtenerLotesDesdeBD();
-    }, []);
+    }, [idNegocioActivo]);
 
     const obtenerLotesDesdeBD = async () => {
         setCargandoLista(true);
         try {
             const params = new URLSearchParams();
-            const idNegocio = usuario?.id_negocio || usuario?.negocio?.id_negocio;
             const idEmpleado = usuario?.id_usuario || usuario?.id;
-            if (idNegocio) params.append('id_negocio', String(idNegocio));
+            if (idNegocioActivo) params.append('id_negocio', String(idNegocioActivo));
             if (idEmpleado) params.append('id_empleado', String(idEmpleado));
 
             const query = params.toString();
@@ -157,7 +158,10 @@ export default function GenerarQR({ onVolver }) {
                 headers: { 'Content-Type': 'application/json', ...getAuthHeaders(usuario) },
                 body: JSON.stringify({
                     id_lote: loteSeleccionado.id_lote,
+                    id_negocio: idNegocioActivo,
                     peso_salida: kilos,
+                    id_corte: corteSeleccionadoObj?.id_corte || loteSeleccionado.id_corte || null,
+                    tipo_corte: corteSeleccionadoObj?.nombre_corte || loteSeleccionado.tipo_corte || null,
                     tip_recomendacion: tipFinal
                 })
             });
@@ -196,7 +200,9 @@ export default function GenerarQR({ onVolver }) {
             </TouchableOpacity>
 
             <Text style={styles.tituloSeccionQR}>Generar Etiqueta de Salida</Text>
-            <Text style={styles.subtituloSeccionQR}>Selecciona un lote activo, elige el corte y activa los tips a incluir en la trazabilidad.</Text>
+            <Text style={styles.subtituloSeccionQR}>
+                Selecciona un lote activo, elige el corte y activa los tips a incluir en la trazabilidad{nombreNegocio ? ` · ${nombreNegocio}` : ''}.
+            </Text>
 
             {!loteSeleccionado ? (
                 <View style={styles.seccionLista}>
@@ -227,7 +233,16 @@ export default function GenerarQR({ onVolver }) {
                 <View style={styles.contenedorEtiqueta}>
                     {(() => {
                         const codigoTrazabilidad = String(loteSeleccionado.id_lote).padStart(10, '0');
-                        const urlQR = `https://biosell.app/trazabilidad?id_lote=${codigoTrazabilidad}`;
+                        const valorQR = crearValorQR(
+                            loteSeleccionado,
+                            usuario,
+                            idNegocioActivo,
+                            {
+                                id_corte: corteSeleccionadoObj?.id_corte || loteSeleccionado.id_corte || null,
+                                incluir_tip_cuidado: incluirTipCuidado,
+                                incluir_recomendacion: incluirRecomendacion
+                            }
+                        );
 
                         return (
                             <>
@@ -364,7 +379,7 @@ export default function GenerarQR({ onVolver }) {
                                     <View style={styles.ticketDerecha}>
                                         <View style={styles.marcoQR}>
                                             <QRCode
-                                                value={urlQR}
+                                                value={valorQR}
                                                 size={95} 
                                                 color="#000000" 
                                                 backgroundColor={PALETA.blancoPuro}

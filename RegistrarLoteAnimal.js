@@ -224,8 +224,9 @@ const Seccion = ({ titulo, subtitulo, icono, children }) => (
     </View>
 );
 
-export default function RegistrarLoteAnimal({ onVolver }) {
+export default function RegistrarLoteAnimal({ onVolver, idNegocio, nombreNegocio }) {
     const { usuario } = useContext(AuthContext);
+    const idNegocioActivo = idNegocio || usuario?.id_negocio || usuario?.negocio?.id_negocio || null;
     const [tipoSeleccionado, setTipoSeleccionado] = useState(null);
     const [formData, setFormData] = useState(() => crearFormInicial());
     const [errores, setErrores] = useState({});
@@ -375,7 +376,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                 fecha_ingreso: formatearParaBD(limpiarTexto(formData.lote.fecha_ingreso)),
                 fecha_vencimiento: formatearParaBD(limpiarTexto(formData.lote.fecha_vencimiento)),
                 estado: formData.lote.estado,
-                id_negocio: usuario?.id_negocio || usuario?.negocio?.id_negocio || null,
+                id_negocio: idNegocioActivo,
                 id_empleado: usuario?.id_usuario || usuario?.id || null
             }
         };
@@ -451,7 +452,9 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                 </TouchableOpacity>
 
                 <Text style={styles.titulo}>Registrar Lote / Animal</Text>
-                <Text style={styles.subtitulo}>¿Qué tipo de lote deseas registrar?</Text>
+                <Text style={styles.subtitulo}>
+                    ¿Qué tipo de lote deseas registrar?{nombreNegocio ? ` · ${nombreNegocio}` : ''}
+                </Text>
 
                 <View style={styles.selectorGrid}>
                     {TIPOS_LOTE.map((tipo) => (
@@ -497,6 +500,7 @@ export default function RegistrarLoteAnimal({ onVolver }) {
                 </TouchableOpacity>
 
                 <Text style={styles.titulo}>Registrar Lote de {tipoSeleccionado.label}</Text>
+                {nombreNegocio ? <Text style={styles.subtitulo}>Sucursal: {nombreNegocio}</Text> : null}
                 <Text style={styles.leyendaObligatorio}>
                     * Los campos marcados con (*) son obligatorios para la trazabilidad y consulta.
                 </Text>

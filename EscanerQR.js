@@ -41,7 +41,10 @@ export default function EscanerQR({ navigation }) {
 
     navigation.navigate('IngresoManual', {
       codigoQR: idExtraido,
-      origenConsulta: 'qr'
+      origenConsulta: 'qr',
+      id_corte: identificador?.idCorte || '',
+      incluir_tip_cuidado: Boolean(identificador?.incluirTipCuidado),
+      incluir_recomendacion: Boolean(identificador?.incluirRecomendacion)
     });
   };
 

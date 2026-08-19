@@ -17,6 +17,10 @@ import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
 import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
 const CLAVE_BIOMETRIA_ACTIVADA = 'biosello_biometria_activada';
+const CLAVE_USUARIO_GUARDADO = 'biosello_usuario_identificador';
+const CLAVE_PASS_GUARDADA = 'biosello_usuario_pass';
+
+const normalizarIdentificador = (valor) => String(valor || '').trim().toLowerCase();
 
 export default function CuentaScreen({ navigation }) {
   const { sesionActiva, sesionCargando, usuario, setUsuario, cerrarSesion: cerrarSesionAuth } = useContext(AuthContext);
@@ -62,6 +66,31 @@ export default function CuentaScreen({ navigation }) {
 
   const alternarBiometria = async (valor) => {
     if (valor) {
+      const [identificadorGuardado, contrasenaGuardada] = await Promise.all([
+        SecureStore.getItemAsync(CLAVE_USUARIO_GUARDADO),
+        SecureStore.getItemAsync(CLAVE_PASS_GUARDADA)
+      ]);
+      const identificadoresSesion = [usuario?.email, usuario?.correo, usuario?.telefono]
+        .map(normalizarIdentificador)
+        .filter(Boolean);
+
+      if (
+        !contrasenaGuardada
+        || !identificadoresSesion.includes(normalizarIdentificador(identificadorGuardado))
+      ) {
+        await Promise.all([
+          SecureStore.deleteItemAsync(CLAVE_BIOMETRIA_ACTIVADA),
+          SecureStore.deleteItemAsync(CLAVE_USUARIO_GUARDADO),
+          SecureStore.deleteItemAsync(CLAVE_PASS_GUARDADA)
+        ]);
+        setBiometriaHabilitada(false);
+        Alert.alert(
+          'Vinculación requerida',
+          'Por seguridad, cierra sesión e inicia nuevamente con tu contraseña. Al ingresar se te preguntará si deseas vincular la biometría a esta cuenta.'
+        );
+        return;
+      }
+
       const auth = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Confirma tu huella para activar el acceso biométrico',
         fallbackLabel: 'Cancelar'
@@ -73,7 +102,11 @@ export default function CuentaScreen({ navigation }) {
         Alert.alert('Biometría Activada', 'Ahora podrás ingresar rápidamente desde la pantalla de inicio de sesión.');
       }
     } else {
-      await SecureStore.setItemAsync(CLAVE_BIOMETRIA_ACTIVADA, 'false');
+      await Promise.all([
+        SecureStore.setItemAsync(CLAVE_BIOMETRIA_ACTIVADA, 'false'),
+        SecureStore.deleteItemAsync(CLAVE_USUARIO_GUARDADO),
+        SecureStore.deleteItemAsync(CLAVE_PASS_GUARDADA)
+      ]);
       setBiometriaHabilitada(false);
       Alert.alert('Biometría Desactivada', 'Se ha retirado la opción de acceso por huella para tu cuenta.');
     }
@@ -227,13 +260,8 @@ export default function CuentaScreen({ navigation }) {
           Para ver o editar tu perfil, necesitas registrar tu negocio o iniciar sesión con una cuenta existente.
         </Text>
 
-        <TouchableOpacity style={styles.botonUsuario} onPress={() => navigation.navigate('actRegistroUsuario')}>
-          <Ionicons name="person-add-outline" size={20} color={COLORS.blancoPuro} />
-          <Text style={styles.textoBotonUsuario}>Crear cuenta personal</Text>
-        </TouchableOpacity>
-
         <TouchableOpacity style={styles.botonRegistro} onPress={() => navigation.navigate('actRegistroNegocio')}>
-          <Ionicons name="business-outline" size={20} color={COLORS.azulMarino} />
+          <Ionicons name="business-outline" size={20} color={COLORS.blancoPuro} />
           <Text style={styles.textoBotonRegistro}>Registrar mi negocio</Text>
         </TouchableOpacity>
 
@@ -338,11 +366,8 @@ const styles = StyleSheet.create({
     sesionTitulo: { color: COLORS.azulMarino, fontSize: 22, fontWeight: FONTS.bold, textAlign: 'center', marginBottom: 10 },
     sesionTexto: { color: '#64748b', fontSize: 15, textAlign: 'center', marginBottom: 35, lineHeight: 22 },
 
-    botonUsuario: { backgroundColor: COLORS.rojoIntenso, width: '100%', paddingVertical: 16, borderRadius: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 12, elevation: 2 },
-    textoBotonUsuario: { color: COLORS.blancoPuro, fontSize: 16, fontWeight: FONTS.bold, marginLeft: 10 },
-    
-    botonRegistro: { backgroundColor: COLORS.blancoPuro, borderWidth: 2, borderColor: COLORS.azulMarino, width: '100%', paddingVertical: 15, borderRadius: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
-    textoBotonRegistro: { color: COLORS.azulMarino, fontSize: 16, fontWeight: FONTS.bold, marginLeft: 10 },
+    botonRegistro: { backgroundColor: COLORS.rojoIntenso, width: '100%', paddingVertical: 16, borderRadius: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 12, elevation: 2 },
+    textoBotonRegistro: { color: COLORS.blancoPuro, fontSize: 16, fontWeight: FONTS.bold, marginLeft: 10 },
     
     botonLogin: { backgroundColor: COLORS.blancoPuro, borderWidth: 2, borderColor: COLORS.azulMarino, width: '100%', paddingVertical: 15, borderRadius: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
     textoBotonLogin: { color: COLORS.azulMarino, fontSize: 16, fontWeight: FONTS.bold, marginLeft: 10 },
