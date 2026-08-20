@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useCallback } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -12,67 +12,81 @@ import {
     Platform,
     ScrollView
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
-import * as SecureStore from 'expo-secure-store';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
-import { API_BASE_URL, normalizarUsuarioSesion } from './src/utils/auth';
-
-const CLAVE_USUARIO_GUARDADO = 'biosello_usuario_identificador';
-const CLAVE_PASS_GUARDADA = 'biosello_usuario_pass';
-const CLAVE_BIOMETRIA_ACTIVADA = 'biosello_biometria_activada';
+import {
+    API_BASE_URL,
+    normalizarUsuarioSesion,
+    guardarBiometriaCuenta,
+    obtenerBiometriaCuenta,
+    eliminarBiometriaCuenta
+} from './src/utils/auth';
 
 export default function ActInicioSesion({ navigation }) {
     const { iniciarSesion } = useContext(AuthContext);
     const [loading, setLoading] = useState(false);
     const [mostrarContrasena, setMostrarContrasena] = useState(false);
-    const [mostrarBotonBiometrico, setMostrarBotonBiometrico] = useState(false);
-    const [idVinculado, setIdVinculado] = useState('');
+    
+    // Estado de biometría vinculada
+    const [cuentaVinculada, setCuentaVinculada] = useState(null);
+    const [hardwareDisponible, setHardwareDisponible] = useState(false);
+    const [modoContrasena, setModoContrasena] = useState(true);
     
     const [credenciales, setCredenciales] = useState({ identificador: '', contrasena: '' });
 
-    useEffect(() => {
-        verificarEstadoBiometrico();
-    }, []);
+    // Cargar estado biométrico al entrar a la pantalla
+    useFocusEffect(
+        useCallback(() => {
+            verificarEstadoBiometrico();
+        }, [])
+    );
 
+    // Función para verificar si hay una cuenta guardada con huella activa y vigente (< 30 días)
     const verificarEstadoBiometrico = async () => {
         try {
             const compatible = await LocalAuthentication.hasHardwareAsync();
             const registrado = await LocalAuthentication.isEnrolledAsync();
-            const biometriaActivada = await SecureStore.getItemAsync(CLAVE_BIOMETRIA_ACTIVADA);
-            const idGuardado = await SecureStore.getItemAsync(CLAVE_USUARIO_GUARDADO);
+            const esBiometriaValida = compatible && registrado;
+            setHardwareDisponible(esBiometriaValida);
 
-            if (idGuardado) {
-                setIdVinculado(idGuardado);
-                setCredenciales(prev => ({ ...prev, identificador: idGuardado }));
+            const cuentaGuardada = await obtenerBiometriaCuenta();
+
+            if (cuentaGuardada && esBiometriaValida) {
+                setCuentaVinculada(cuentaGuardada);
+                setCredenciales({
+                    identificador: cuentaGuardada.identificador,
+                    contrasena: ''
+                });
+                // Si la cuenta tiene huella activa, se inicia en modo huella
+                setModoContrasena(false);
+            } else {
+                setCuentaVinculada(null);
+                setModoContrasena(true);
             }
-
-            // Solo mostramos la opción si el hardware es compatible, hay usuario guardado y EL USUARIO ACTIVÓ LA OPCIÓN
-            setMostrarBotonBiometrico(compatible && registrado && biometriaActivada === 'true' && Boolean(idGuardado));
         } catch (e) {
-            setMostrarBotonBiometrico(false);
+            setCuentaVinculada(null);
+            setModoContrasena(true);
         }
     };
 
+    // Función para autenticar con huella dactilar para la cuenta guardada
     const autenticarConBiometria = async () => {
+        if (!cuentaVinculada) return;
+
         try {
-            const passGuardada = await SecureStore.getItemAsync(CLAVE_PASS_GUARDADA);
-
-            if (!passGuardada) {
-                await SecureStore.setItemAsync(CLAVE_BIOMETRIA_ACTIVADA, 'false');
-                setMostrarBotonBiometrico(false);
-                Alert.alert('Acceso expirado', 'Por favor ingresa tu contraseña manualmente para renovar la biometría.');
-                return;
-            }
-
             const result = await LocalAuthentication.authenticateAsync({
-                promptMessage: `Acceso biométrico para ${idVinculado}`,
-                fallbackLabel: 'Usar contraseña',
+                promptMessage: `Acceso biométrico para ${cuentaVinculada.identificador}`,
+                fallbackLabel: 'Ingresar con contraseña',
+                cancelLabel: 'Cancelar'
             });
 
             if (result.success) {
-                ejecutarPeticionLogin(idVinculado, passGuardada, false);
+                ejecutarPeticionLogin(cuentaVinculada.identificador, cuentaVinculada.contrasena, false);
+            } else if (result.error === 'user_fallback') {
+                setModoContrasena(true);
             }
         } catch (error) {
             Alert.alert('Error', 'No se pudo procesar la autenticación biométrica.');
@@ -97,38 +111,33 @@ export default function ActInicioSesion({ navigation }) {
         return true;
     };
 
-    const preguntarActivaciónBiometria = (idLimpio, contrasenaVal, datosUsuario) => {
-        LocalAuthentication.hasHardwareAsync().then(compatible => {
-            LocalAuthentication.isEnrolledAsync().then(registrado => {
-                if (compatible && registrado) {
-                    Alert.alert(
-                        'Acceso Rápido',
-                        '¿Deseas activar el inicio de sesión con huella o biometría para tus próximos ingresos?',
-                        [
-                            {
-                                text: 'No, gracias',
-                                style: 'cancel',
-                                onPress: async () => {
-                                    await SecureStore.setItemAsync(CLAVE_BIOMETRIA_ACTIVADA, 'false');
-                                    finalizarLogin(datosUsuario);
-                                }
-                            },
-                            {
-                                text: 'Sí, activar',
-                                onPress: async () => {
-                                    await SecureStore.setItemAsync(CLAVE_USUARIO_GUARDADO, idLimpio);
-                                    await SecureStore.setItemAsync(CLAVE_PASS_GUARDADA, contrasenaVal);
-                                    await SecureStore.setItemAsync(CLAVE_BIOMETRIA_ACTIVADA, 'true');
-                                    finalizarLogin(datosUsuario);
-                                }
-                            }
-                        ]
-                    );
-                } else {
-                    finalizarLogin(datosUsuario);
-                }
-            });
-        });
+    // Pregunta si desea activar huella digital para la cuenta tras inicio exitoso
+    const preguntarActivacionBiometria = (idLimpio, contrasenaVal, datosUsuario) => {
+        if (hardwareDisponible) {
+            Alert.alert(
+                'Inicio con huella digital',
+                '¿Deseas activar el inicio de sesión con huella digital para esta cuenta en tus próximos accesos?',
+                [
+                    {
+                        text: 'No, gracias',
+                        style: 'cancel',
+                        onPress: async () => {
+                            await eliminarBiometriaCuenta();
+                            finalizarLogin(datosUsuario);
+                        }
+                    },
+                    {
+                        text: 'Sí, activar',
+                        onPress: async () => {
+                            await guardarBiometriaCuenta(idLimpio, contrasenaVal);
+                            finalizarLogin(datosUsuario);
+                        }
+                    }
+                ]
+            );
+        } else {
+            finalizarLogin(datosUsuario);
+        }
     };
 
     const finalizarLogin = (datosUsuario) => {
@@ -174,17 +183,13 @@ export default function ActInicioSesion({ navigation }) {
 
             if (!response.ok || result.success === false) {
                 if (!esPrimerIngreso && (response.status === 401 || response.status === 403)) {
-                    await Promise.all([
-                        SecureStore.setItemAsync(CLAVE_BIOMETRIA_ACTIVADA, 'false'),
-                        SecureStore.deleteItemAsync(CLAVE_USUARIO_GUARDADO),
-                        SecureStore.deleteItemAsync(CLAVE_PASS_GUARDADA)
-                    ]);
-                    setMostrarBotonBiometrico(false);
-                    setIdVinculado('');
+                    await eliminarBiometriaCuenta();
+                    setCuentaVinculada(null);
+                    setModoContrasena(true);
                     setCredenciales({ identificador: '', contrasena: '' });
                     Alert.alert(
                         'Vinculación expirada',
-                        'La credencial guardada ya no es válida. Inicia sesión con tu contraseña para volver a vincular la biometría.'
+                        'Las credenciales guardadas cambiaron o no son válidas. Inicia sesión con tu contraseña.'
                     );
                     return;
                 }
@@ -199,15 +204,13 @@ export default function ActInicioSesion({ navigation }) {
             }
 
             if (esPrimerIngreso) {
-                // Verificamos si ya ha tomado una decisión de biometría previamente
-                const estadoPrevio = await SecureStore.getItemAsync(CLAVE_BIOMETRIA_ACTIVADA);
-                if (estadoPrevio === null) {
-                    preguntarActivaciónBiometria(idLimpio, contrasenaVal, datosUsuario);
+                // Verificar si la cuenta que ingresó ya coincide con la que tiene huella
+                const cuentaGuardada = await obtenerBiometriaCuenta();
+                if (!cuentaGuardada || cuentaGuardada.identificador !== idLimpio) {
+                    preguntarActivacionBiometria(idLimpio, contrasenaVal, datosUsuario);
                 } else {
-                    if (estadoPrevio === 'true') {
-                        await SecureStore.setItemAsync(CLAVE_USUARIO_GUARDADO, idLimpio);
-                        await SecureStore.setItemAsync(CLAVE_PASS_GUARDADA, contrasenaVal);
-                    }
+                    // Actualizar contraseña en caso de cambio
+                    await guardarBiometriaCuenta(idLimpio, contrasenaVal);
                     finalizarLogin(datosUsuario);
                 }
             } else {
@@ -220,10 +223,17 @@ export default function ActInicioSesion({ navigation }) {
         }
     };
 
-    const manejarLogin = () => {
+    const manejarLoginManual = () => {
         if (!validarEntradas()) return;
         ejecutarPeticionLogin(credenciales.identificador, credenciales.contrasena, true);
     };
+
+    // Comprueba si el texto actual coincide exactamente con la cuenta guardada
+    const identificadorCoincideConGuardado = cuentaVinculada &&
+        credenciales.identificador.trim().toLowerCase() === cuentaVinculada.identificador.toLowerCase();
+
+    // Determina si se debe mostrar el botón de huella
+    const mostrarOpcionHuella = hardwareDisponible && identificadorCoincideConGuardado && !modoContrasena;
 
     return (
         <KeyboardAvoidingView 
@@ -246,33 +256,76 @@ export default function ActInicioSesion({ navigation }) {
                         placeholder="ejemplo@correo.com o 10 dígitos"
                         placeholderTextColor="#888"
                         value={credenciales.identificador}
-                        onChangeText={(text) => setCredenciales((prev) => ({ ...prev, identificador: text }))}
+                        onChangeText={(text) => {
+                            setCredenciales((prev) => ({ ...prev, identificador: text }));
+                            // Si el usuario escribe una cuenta diferente a la vinculada, forzar modo contraseña
+                            if (!cuentaVinculada || text.trim().toLowerCase() !== cuentaVinculada.identificador.toLowerCase()) {
+                                setModoContrasena(true);
+                            }
+                        }}
                     />
 
-                    <Text style={styles.label}>Contraseña</Text>
-                    <View style={styles.passwordContainer}>
-                        <TextInput
-                            style={styles.passwordInput}
-                            secureTextEntry={!mostrarContrasena}
-                            maxLength={128}
-                            value={credenciales.contrasena}
-                            onChangeText={(text) => setCredenciales((prev) => ({ ...prev, contrasena: text }))}
-                        />
-                        <TouchableOpacity style={styles.eyeIcon} onPress={() => setMostrarContrasena(!mostrarContrasena)}>
-                            <Ionicons name={mostrarContrasena ? 'eye-off' : 'eye'} size={24} color="gray" />
-                        </TouchableOpacity>
-                    </View>
+                    {/* VISTA 1: INICIO DE SESIÓN CON HUELLA BIOMÉTRICA */}
+                    {mostrarOpcionHuella ? (
+                        <View style={styles.seccionBiometria}>
+                            <TouchableOpacity
+                                style={styles.botonPrincipalBiometria}
+                                onPress={autenticarConBiometria}
+                                disabled={loading}
+                                activeOpacity={0.8}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator color={COLORS.blancoPuro} />
+                                ) : (
+                                    <>
+                                        <Ionicons name="finger-print-outline" size={38} color={COLORS.blancoPuro} />
+                                        <Text style={styles.textoBotonBiometria}>Ingresar con huella digital</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.mainButton} onPress={manejarLogin} disabled={loading}>
-                        {loading ? <ActivityIndicator color={COLORS.blancoPuro} /> : <Text style={styles.mainButtonText}>Iniciar sesión</Text>}
-                    </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.botonAlternarModo}
+                                onPress={() => setModoContrasena(true)}
+                                disabled={loading}
+                            >
+                                <Text style={styles.textoAlternarModo}>Ingresar con contraseña</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        /* VISTA 2: INGRESO MANUAL CON CONTRASEÑA */
+                        <View>
+                            <Text style={styles.label}>Contraseña</Text>
+                            <View style={styles.passwordContainer}>
+                                <TextInput
+                                    style={styles.passwordInput}
+                                    secureTextEntry={!mostrarContrasena}
+                                    maxLength={128}
+                                    placeholder="Ingresa tu contraseña"
+                                    placeholderTextColor="#888"
+                                    value={credenciales.contrasena}
+                                    onChangeText={(text) => setCredenciales((prev) => ({ ...prev, contrasena: text }))}
+                                />
+                                <TouchableOpacity style={styles.eyeIcon} onPress={() => setMostrarContrasena(!mostrarContrasena)}>
+                                    <Ionicons name={mostrarContrasena ? 'eye-off' : 'eye'} size={24} color="gray" />
+                                </TouchableOpacity>
+                            </View>
 
-                    {/* MOSTRADO ÚNICAMENTE SI EL USUARIO ACTIVÓ LA OPCIÓN */}
-                    {mostrarBotonBiometrico && (
-                        <TouchableOpacity style={styles.biometricButton} onPress={autenticarConBiometria} disabled={loading}>
-                            <Ionicons name="finger-print-outline" size={26} color={COLORS.blancoPuro} />
-                            <Text style={styles.biometricText}>Ingresar con huella o biometría</Text>
-                        </TouchableOpacity>
+                            <TouchableOpacity style={styles.mainButton} onPress={manejarLoginManual} disabled={loading}>
+                                {loading ? <ActivityIndicator color={COLORS.blancoPuro} /> : <Text style={styles.mainButtonText}>Iniciar sesión</Text>}
+                            </TouchableOpacity>
+
+                            {/* Enlace para volver a huella si la cuenta coincide */}
+                            {hardwareDisponible && identificadorCoincideConGuardado && (
+                                <TouchableOpacity
+                                    style={styles.botonAlternarModo}
+                                    onPress={() => setModoContrasena(false)}
+                                    disabled={loading}
+                                >
+                                    <Text style={styles.textoAlternarModo}>Usar huella digital</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     )}
 
                     <TouchableOpacity style={styles.linkButton} onPress={() => navigation.navigate('actRegistroNegocio')} disabled={loading}>
@@ -303,11 +356,17 @@ const styles = StyleSheet.create({
     eyeIcon: { padding: 10 },
     mainButton: { backgroundColor: COLORS.rojoIntenso, padding: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginTop: 10 },
     mainButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: SIZES.textoBase },
-    biometricButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 15, padding: 10, borderWidth: 1, borderColor: COLORS.azulCeruleo, borderRadius: SIZES.radioBoton, gap: 10 },
-    biometricText: { color: COLORS.blancoPuro, fontSize: SIZES.textoSecundario, fontWeight: FONTS.bold },
-    linkButton: { alignItems: 'center', paddingVertical: 12 },
+    
+    // Estilos de Biometría
+    seccionBiometria: { alignItems: 'center', marginVertical: 10 },
+    botonPrincipalBiometria: { backgroundColor: COLORS.azulCeruleo, width: '100%', paddingVertical: 16, paddingHorizontal: 20, borderRadius: SIZES.radioBoton, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 12, elevation: 2 },
+    textoBotonBiometria: { color: COLORS.blancoPuro, fontSize: 16, fontWeight: FONTS.bold },
+    botonAlternarModo: { marginTop: 16, paddingVertical: 8, alignItems: 'center' },
+    textoAlternarModo: { color: '#e0f2fe', fontSize: 14, fontWeight: FONTS.bold, textDecorationLine: 'underline' },
+
+    linkButton: { alignItems: 'center', paddingVertical: 14, marginTop: 5 },
     linkButtonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, textDecorationLine: 'underline' },
-    forgotContainer: { marginTop: 25, alignItems: 'center' },
+    forgotContainer: { marginTop: 20, alignItems: 'center' },
     forgotText: { color: COLORS.blancoPuro, fontSize: 15, fontWeight: FONTS.bold, textAlign: 'center' },
     subForgotText: { color: '#cbd5e1', fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 4 },
     forgotLink: { fontStyle: 'italic', textDecorationLine: 'underline' }

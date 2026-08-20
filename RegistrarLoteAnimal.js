@@ -44,13 +44,6 @@ const obtenerClasificaciones = (especie, sexo) => {
         : ['TORETE', 'TORO', 'BECERRO', 'BUEY'];
 };
 
-const obtenerCodigoSugerido = () => {
-    const ahora = new Date();
-    const anio = ahora.getFullYear();
-    const mes = String(ahora.getMonth() + 1).padStart(2, '0');
-    return `LOT-${anio}-${mes}-001`;
-};
-
 const crearFormInicial = (especie = 'BOVINO') => ({
     guia_transito: { 
         folio_guia: '', 
@@ -89,7 +82,7 @@ const crearFormInicial = (especie = 'BOVINO') => ({
         imagen: null
     },
     lote: {
-        codigo_lote: obtenerCodigoSugerido(),
+        codigo_lote: 'AUTO',
         tipo_corte: '',
         peso_kg: '',
         fecha_ingreso: '',
@@ -261,12 +254,47 @@ export default function RegistrarLoteAnimal({ onVolver, idNegocio, nombreNegocio
     };
 
     const abrirCalendario = (grupo, campo, titulo) => {
-        setCalendarioActivo({ grupo, campo, titulo });
+        let minDate = null;
+        if (grupo === 'lote' && campo === 'fecha_vencimiento') {
+            minDate = formData.lote.fecha_ingreso || null;
+        }
+        setCalendarioActivo({ grupo, campo, titulo, minDate });
     };
 
     const seleccionarFecha = (fecha) => {
         if (!calendarioActivo) return;
-        actualizarCampo(calendarioActivo.grupo, calendarioActivo.campo, formatearParaUI(fecha));
+        const { grupo, campo, minDate } = calendarioActivo;
+        const fechaUI = formatearParaUI(fecha);
+
+        // Validación de fecha no menor
+        if (grupo === 'lote' && campo === 'fecha_vencimiento' && minDate) {
+            const fIngresoBD = formatearParaBD(minDate);
+            const fVencBD = formatearParaBD(fechaUI);
+            if (fVencBD < fIngresoBD) {
+                Alert.alert(
+                    'Fecha no válida',
+                    'La fecha preferente de consumo no puede ser anterior a la fecha de producción.'
+                );
+                return;
+            }
+        }
+
+        setFormData((prev) => {
+            const nuevo = { ...prev[grupo], [campo]: fechaUI };
+
+            // Si se cambia la fecha de producción y la de consumo preferente queda anterior, se limpia
+            if (grupo === 'lote' && campo === 'fecha_ingreso' && prev.lote.fecha_vencimiento) {
+                const fIngresoBD = formatearParaBD(fechaUI);
+                const fVencBD = formatearParaBD(prev.lote.fecha_vencimiento);
+                if (fVencBD < fIngresoBD) {
+                    nuevo.fecha_vencimiento = '';
+                }
+            }
+
+            return { ...prev, [grupo]: nuevo };
+        });
+
+        setErrores((prev) => ({ ...prev, [`${grupo}.${campo}`]: null }));
         setCalendarioActivo(null);
     };
 
@@ -322,6 +350,20 @@ export default function RegistrarLoteAnimal({ onVolver, idNegocio, nombreNegocio
             nuevosErrores['lote.fecha_vencimiento'] = 'Usa el formato DD/MM/AA o DD/MM/AAAA.';
         }
 
+        // Validación de coherencia cronológica entre producción y vencimiento
+        if (
+            formData.lote.fecha_ingreso &&
+            formData.lote.fecha_vencimiento &&
+            fechaValida(formData.lote.fecha_ingreso) &&
+            fechaValida(formData.lote.fecha_vencimiento)
+        ) {
+            const fIngresoBD = formatearParaBD(formData.lote.fecha_ingreso);
+            const fVencBD = formatearParaBD(formData.lote.fecha_vencimiento);
+            if (fVencBD < fIngresoBD) {
+                nuevosErrores['lote.fecha_vencimiento'] = 'La fecha preferente de consumo no puede ser anterior a la fecha de producción.';
+            }
+        }
+
         setErrores(nuevosErrores);
         return nuevosErrores;
     };
@@ -370,7 +412,7 @@ export default function RegistrarLoteAnimal({ onVolver, idNegocio, nombreNegocio
                 imagen_animal_pathname: imagenSubida?.pathname || null
             },
             lote: {
-                codigo_lote: 'AUTO',
+                codigo_lote: limpiarTexto(formData.lote.codigo_lote) || 'AUTO',
                 tipo_corte: limpiarTexto(formData.lote.tipo_corte),
                 peso_kg: Number(formData.lote.peso_kg),
                 fecha_ingreso: formatearParaBD(limpiarTexto(formData.lote.fecha_ingreso)),
@@ -412,11 +454,12 @@ export default function RegistrarLoteAnimal({ onVolver, idNegocio, nombreNegocio
                 return;
             }
 
+            const codigoAsignado = result.data?.codigo_lote || 'Registrado';
             const avisoImagen = formData.animal.imagen
-                ? '\n\nLa fotografia fue almacenada y aparecera al consultar el codigo QR.'
+                ? '\n\nLa fotografía fue almacenada y aparecerá al consultar el código QR.'
                 : '';
 
-            Alert.alert('Registro Exitoso', `El lote ha sido guardado con el código: ${result.data?.codigo_lote}${avisoImagen}`, [
+            Alert.alert('Lote registrado con éxito', `Número de lote: ${codigoAsignado}${avisoImagen}`, [
                 {
                     text: 'Entendido',
                     onPress: () => {
@@ -818,17 +861,13 @@ export default function RegistrarLoteAnimal({ onVolver, idNegocio, nombreNegocio
                 </Seccion>
 
                 <Seccion titulo="6. Lote de carne" subtitulo="Entrada al inventario" icono="cube">
-                    <InputCampo
-                        grupo="lote"
-                        campo="codigo_lote"
-                        label="Código de lote (Autogenerado)"
-                        editable={false}
-                        ayuda="Identificador asignado automáticamente."
-                        autoCapitalize="characters"
-                        formData={formData}
-                        errores={errores}
-                        actualizarCampo={actualizarCampo}
-                    />
+                    <View style={styles.avisoAlmacenamiento}>
+                        <Ionicons name="barcode-outline" size={18} color="#0369a1" />
+                        <Text style={[styles.textoAvisoAlmacenamiento, { color: '#0369a1' }]}>
+                            El número de lote oficial (ej. LOT-2026-08-XXX) será asignado y verificado automáticamente por el sistema al registrar.
+                        </Text>
+                    </View>
+
                     <InputCampo
                         grupo="lote"
                         campo="tipo_corte"
@@ -890,6 +929,7 @@ export default function RegistrarLoteAnimal({ onVolver, idNegocio, nombreNegocio
             <CalendarioModal
                 visible={Boolean(calendarioActivo)}
                 value={calendarioActivo ? formData[calendarioActivo.grupo][calendarioActivo.campo] : ''}
+                minDate={calendarioActivo?.minDate || null}
                 title={calendarioActivo?.titulo || 'Seleccionar fecha'}
                 onSelect={seleccionarFecha}
                 onClose={() => setCalendarioActivo(null)}
@@ -960,5 +1000,22 @@ const styles = StyleSheet.create({
     textoAvisoAlmacenamiento: { flex: 1, color: '#92400e', fontSize: 11, lineHeight: 16 },
     botonPrincipal: { backgroundColor: COLORS.azulCeruleo, paddingVertical: 16, borderRadius: 10, alignItems: 'center', justifyContent: 'center', minHeight: 54, marginTop: 4, marginBottom: 20 },
     botonDeshabilitado: { backgroundColor: '#94a3b8' },
-    textoBotonPrincipal: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, fontWeight: FONTS.bold }
+    textoBotonPrincipal: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, fontWeight: FONTS.bold },
+    filaLabelConBoton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    botonRegenerarLote: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 8, backgroundColor: '#f0fdf4', borderRadius: 6, borderWidth: 1, borderColor: '#bbf7d0' },
+    textoRegenerarLote: { color: COLORS.azulCeruleo, fontSize: 12, fontWeight: FONTS.bold },
+    inputLoteDestacado: { fontWeight: FONTS.bold, letterSpacing: 0.5, color: COLORS.azulMarino, backgroundColor: '#f0fdf4', borderColor: '#86efac' },
+    filaInfoDisponibilidad: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 },
+    textoAyudaLote: { color: '#15803d', fontSize: 12, fontWeight: '500', marginTop: 4 },
+    contenedorGeneradorLote: { paddingVertical: 10, alignItems: 'stretch' },
+    textoExplicacionGenerarLote: { fontSize: 13, color: '#475569', marginBottom: 14, lineHeight: 18 },
+    botonGenerarLotePrincipal: { backgroundColor: COLORS.azulCeruleo, paddingVertical: 14, paddingHorizontal: 16, borderRadius: SIZES.radioBoton, alignItems: 'center', justifyContent: 'center', minHeight: 50 },
+    filaGenerando: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    textoBotonGenerarLote: { color: COLORS.blancoPuro, fontSize: 14, fontWeight: FONTS.bold },
+    tarjetaLoteAsignado: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, padding: 12, marginBottom: 14 },
+    filaHeaderLoteAsignado: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    badgeLoteVerificado: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#dcfce7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    textoBadgeLoteVerificado: { color: '#15803d', fontSize: 12, fontWeight: FONTS.bold },
+    cajaCodigoLoteBloqueado: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.blancoPuro, borderWidth: 1.5, borderColor: '#86efac', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 4 },
+    textoCodigoLoteBloqueado: { fontSize: 17, fontWeight: FONTS.bold, color: COLORS.azulMarino, letterSpacing: 1 }
 });

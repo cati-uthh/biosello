@@ -18,12 +18,43 @@ const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
 
 const formatearParaUI = (fecha) => {
     if (!fecha) return 'N/D';
-    if (fecha.includes('/')) return fecha; 
-    const partes = fecha.split('-');
+    const textoFecha = String(fecha).trim();
+    const soloFecha = textoFecha.split('T')[0];
+    if (soloFecha.includes('/')) return soloFecha;
+    const partes = soloFecha.split('-');
     if (partes.length === 3 && partes[0].length === 4) {
         return `${partes[2]}/${partes[1]}/${partes[0]}`;
     }
-    return fecha;
+    return soloFecha;
+};
+
+const enmascararArete = (arete) => {
+    if (!arete || arete === 'N/D') return 'N/D';
+    const limpio = String(arete).trim();
+    if (limpio.length <= 4) return `*******${limpio}`;
+    const visibles = limpio.slice(-4);
+    return `*******${visibles}`;
+};
+
+const formatearEntradaLote = (texto) => {
+    if (!texto) return '';
+    const textoStr = String(texto).trim().toUpperCase();
+    
+    // Extraer únicamente los dígitos numéricos
+    const soloDigitos = textoStr.replace(/\D/g, '');
+    if (!soloDigitos) return '';
+
+    if (soloDigitos.length <= 4) {
+        return `LOT-${soloDigitos}`;
+    }
+    if (soloDigitos.length <= 6) {
+        return `LOT-${soloDigitos.slice(0, 4)}-${soloDigitos.slice(4, 6)}`;
+    }
+    if (soloDigitos.length <= 9) {
+        return `LOT-${soloDigitos.slice(0, 4)}-${soloDigitos.slice(4, 6)}-${soloDigitos.slice(6, 9)}`;
+    }
+    // Si incluye los dígitos del corte (ej. 20260800102 -> LOT-2026-08-001-C02)
+    return `LOT-${soloDigitos.slice(0, 4)}-${soloDigitos.slice(4, 6)}-${soloDigitos.slice(6, 9)}-C${soloDigitos.slice(9, 11)}`;
 };
 
 export default function TrazabilidadScreen({ route, navigation }) {
@@ -42,11 +73,27 @@ export default function TrazabilidadScreen({ route, navigation }) {
         }
     }, [codigoEscaneado]);
 
+    const handleCambioTexto = (valor) => {
+        if (!valor || valor === 'LOT' || valor === 'LOT-') {
+            setCodigoManual('');
+            return;
+        }
+        setCodigoManual(formatearEntradaLote(valor));
+    };
+
     const buscarTrazabilidad = async (codigoABuscar = codigoManual) => {
-        const idLimpiado = codigoABuscar.trim();
+        let idLimpiado = codigoABuscar.trim();
+        let idCorteExtraido = '';
+
+        // Si el código incluye el sufijo del corte (ej. LOT-2026-08-001-C02)
+        const matchCorte = idLimpiado.match(/^(.+)[-_]C(\d+)$/i);
+        if (matchCorte) {
+            idLimpiado = matchCorte[1].trim();
+            idCorteExtraido = String(Number(matchCorte[2]));
+        }
         
         if (!idLimpiado) {
-            Alert.alert('Código vacío', 'Ingresa un código de trazabilidad válido.');
+            Alert.alert('Código vacío', 'Ingresa un código de trazabilidad o número de lote válido.');
             return;
         }
 
@@ -55,14 +102,55 @@ export default function TrazabilidadScreen({ route, navigation }) {
         setDatosLote(null);
 
         try {
-            const idNumerico = parseInt(idLimpiado, 10); 
-            const response = await fetch(`${API_BASE_URL}/obtenerTrazabilidad?id_lote=${idNumerico}`);
-            const result = await response.json();
+            let result = null;
 
-            if (result.success) {
+            const candidatos = [];
+            candidatos.push(idLimpiado);
+
+            const soloDigitos = idLimpiado.replace(/\D/g, '');
+            if (soloDigitos.length === 9) {
+                candidatos.push(`LOT-${soloDigitos.slice(0, 4)}-${soloDigitos.slice(4, 6)}-${soloDigitos.slice(6, 9)}`);
+            } else if (soloDigitos.length === 11) {
+                candidatos.push(`LOT-${soloDigitos.slice(0, 4)}-${soloDigitos.slice(4, 6)}-${soloDigitos.slice(6, 9)}`);
+            }
+            if (idLimpiado.startsWith('LOT-')) {
+                candidatos.push(idLimpiado.replace('LOT-', 'LOTE-'));
+            } else if (idLimpiado.startsWith('LOTE-')) {
+                candidatos.push(idLimpiado.replace('LOTE-', 'LOT-'));
+            } else if (soloDigitos.length > 0 && !idLimpiado.startsWith('LOT')) {
+                candidatos.push(`LOT-${idLimpiado}`);
+            }
+
+            const vistos = new Set();
+            for (const cand of candidatos) {
+                const term = String(cand).trim();
+                if (!term || vistos.has(term.toUpperCase())) continue;
+                vistos.add(term.toUpperCase());
+
+                try {
+                    // Consulta pública directa
+                    const params = new URLSearchParams();
+                    params.append('id_lote', term);
+                    if (idCorteExtraido) {
+                        params.append('id_corte', idCorteExtraido);
+                        params.append('incluir_tip_cuidado', 'true');
+                        params.append('incluir_recomendacion', 'true');
+                    }
+                    const response = await fetch(`${API_BASE_URL}/obtenerTrazabilidad?${params.toString()}`);
+                    const json = await response.json();
+                    if (response.ok && json && json.success) {
+                        result = json;
+                        break;
+                    }
+                } catch (e) {
+                    // Continuar al siguiente candidato
+                }
+            }
+
+            if (result && result.success) {
                 setDatosLote(result);
             } else {
-                setErrorData(result.error || 'El lote no existe o no fue encontrado en el sistema.');
+                setErrorData('El lote no existe o no fue encontrado en el sistema.');
             }
         } catch (error) {
             setErrorData('No se pudo conectar con el servidor.');
@@ -78,6 +166,26 @@ export default function TrazabilidadScreen({ route, navigation }) {
         </View>
     );
 
+    const recomendacionCorte = datosLote?.tip_recomendacion
+        || datosLote?.recomendacion
+        || datosLote?.detalles_trazabilidad?.tip_recomendacion
+        || datosLote?.detalles_trazabilidad?.recomendacion
+        || null;
+    const tipCuidadoCorte = datosLote?.tip_cuidado
+        || datosLote?.detalles_trazabilidad?.tip_cuidado
+        || null;
+
+    const tipsCuidadoArray = [];
+    if (recomendacionCorte && String(recomendacionCorte).includes('|')) {
+        const fragmentos = String(recomendacionCorte).split('|').map((f) => f.trim()).filter(Boolean);
+        for (const frag of fragmentos) {
+            tipsCuidadoArray.push(frag.replace(/^(Tip:\s*|Recomendación:\s*)/i, ''));
+        }
+    } else {
+        if (tipCuidadoCorte) tipsCuidadoArray.push(String(tipCuidadoCorte).replace(/^Tip:\s*/i, ''));
+        if (recomendacionCorte) tipsCuidadoArray.push(String(recomendacionCorte).replace(/^Recomendación:\s*/i, ''));
+    }
+
     return (
         <KeyboardAvoidingView style={{ flex: 1, backgroundColor: COLORS.blancoPuro }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
@@ -91,45 +199,38 @@ export default function TrazabilidadScreen({ route, navigation }) {
 
                 {/* BÚSQUEDA MANUAL */}
                 <View style={styles.tarjetaBusqueda}>
-                    <Text style={styles.textoInstruccion}>Ingresa el código de rastreo (10 dígitos):</Text>
+                    <Text style={styles.textoInstruccion}>Ingresa el código de lote o rastreo:</Text>
                     <View style={styles.inputGrupo}>
                         <TextInput
                             style={styles.inputManual}
-                            placeholder="Ej. 0000000015"
+                            placeholder="Ej. 202608001 o 20260800102"
                             placeholderTextColor="#94a3b8"
                             keyboardType="numeric"
+                            autoCapitalize="characters"
                             value={codigoManual}
-                            onChangeText={setCodigoManual}
-                            maxLength={15}
+                            onChangeText={handleCambioTexto}
+                            maxLength={22}
                         />
                         <TouchableOpacity style={styles.botonBuscar} onPress={() => buscarTrazabilidad()}>
-                            <Ionicons name="search" size={20} color={COLORS.blancoPuro} />
+                            {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.textoBoton}>Buscar</Text>}
                         </TouchableOpacity>
                     </View>
                 </View>
 
-                {/* ESTADOS (CARGANDO / ERROR) */}
-                {loading && (
-                    <View style={styles.estadoCentrado}>
-                        <ActivityIndicator size="large" color={COLORS.azulMarino} />
-                        <Text style={styles.estadoTexto}>Verificando producto...</Text>
-                    </View>
-                )}
-
-                {errorData && !loading && (
+                {/* ESTADO: ERROR O NO ENCONTRADO */}
+                {errorData && (
                     <View style={styles.tarjetaError}>
-                        <Ionicons name="alert-circle" size={40} color={COLORS.rojoIntenso} />
-                        <Text style={styles.tituloError}>Producto no encontrado</Text>
+                        <Ionicons name="alert-circle" size={32} color="#dc2626" />
                         <Text style={styles.textoError}>{errorData}</Text>
                     </View>
                 )}
 
-                {/* TABLAS DE RESULTADOS */}
-                {datosLote && !loading && (
+                {/* RESULTADOS DE TRAZABILIDAD */}
+                {datosLote && (
                     <View style={styles.contenedorResultados}>
                         <View style={styles.tarjetaAprobada}>
-                            <Ionicons name="checkmark-circle" size={28} color="#10b981" style={{ marginRight: 8 }} />
-                            <Text style={styles.textoAprobado}>Producto Verificado</Text>
+                            <Ionicons name="shield-checkmark" size={24} color="#16a34a" />
+                            <Text style={styles.textoAprobado}>Autenticidad y Sanidad Certificada</Text>
                         </View>
 
                         <View style={styles.tarjetaDatos}>
@@ -145,6 +246,22 @@ export default function TrazabilidadScreen({ route, navigation }) {
                                 <FilaTabla label="Fecha de Producción" valor={formatearParaUI(datosLote.fecha_empaque)} />
                             </View>
                         </View>
+
+                        {tipsCuidadoArray.length > 0 && (
+                            <View style={styles.tarjetaDatos}>
+                                <View style={styles.encabezadoTarjeta}>
+                                    <Ionicons name="restaurant" size={18} color="#b45309" />
+                                    <Text style={styles.tituloTarjetaDatos}>Recomendaciones del corte</Text>
+                                </View>
+                                <View style={styles.cuerpoTarjeta}>
+                                    {tipsCuidadoArray.map((tip, idx) => (
+                                        <Text key={idx} style={{ fontSize: 13.5, color: '#1e293b', fontStyle: 'italic', paddingVertical: 4 }}>
+                                            • "{tip}"
+                                        </Text>
+                                    ))}
+                                </View>
+                            </View>
+                        )}
 
                         <View style={styles.tarjetaDatos}>
                             <View style={styles.encabezadoTarjeta}>
@@ -165,7 +282,7 @@ export default function TrazabilidadScreen({ route, navigation }) {
                             </View>
                             <View style={styles.cuerpoTarjeta}>
                                 <FilaTabla label="Especie" valor={datosLote.detalles_trazabilidad?.especie} />
-                                <FilaTabla label="Arete (SINIIGA)" valor={datosLote.detalles_trazabilidad?.arete_siniga} destacar />
+                                <FilaTabla label="Arete (SINIIGA)" valor={enmascararArete(datosLote.detalles_trazabilidad?.arete_siniga)} destacar />
                                 <FilaTabla label="Guía Tránsito" valor={datosLote.detalles_trazabilidad?.guia_reemo} />
                                 <FilaTabla label="Rastro Sacrificio" valor={datosLote.detalles_trazabilidad?.sacrificio_rastro} />
                             </View>

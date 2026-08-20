@@ -15,10 +15,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { AuthContext } from './AuthContext';
 import { COLORS, SIZES, FONTS } from './src/theme/theme';
-import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
-const CLAVE_BIOMETRIA_ACTIVADA = 'biosello_biometria_activada';
-const CLAVE_USUARIO_GUARDADO = 'biosello_usuario_identificador';
-const CLAVE_PASS_GUARDADA = 'biosello_usuario_pass';
+import { API_BASE_URL, getAuthHeaders, obtenerBiometriaCuenta, eliminarBiometriaCuenta } from './src/utils/auth';
 
 const normalizarIdentificador = (valor) => String(valor || '').trim().toLowerCase();
 
@@ -55,60 +52,55 @@ export default function CuentaScreen({ navigation }) {
     try {
       const compatible = await LocalAuthentication.hasHardwareAsync();
       const registrado = await LocalAuthentication.isEnrolledAsync();
-      const estado = await SecureStore.getItemAsync(CLAVE_BIOMETRIA_ACTIVADA);
+      const esCompatible = compatible && registrado;
+      setDispositivoSoportaBiometria(esCompatible);
 
-      setDispositivoSoportaBiometria(compatible && registrado);
-      setBiometriaHabilitada(estado === 'true');
+      if (esCompatible) {
+        const cuentaGuardada = await obtenerBiometriaCuenta();
+        const identificadoresSesion = [usuario?.email, usuario?.correo, usuario?.telefono]
+          .map(normalizarIdentificador)
+          .filter(Boolean);
+        const estaActiva = Boolean(cuentaGuardada && identificadoresSesion.includes(normalizarIdentificador(cuentaGuardada.identificador)));
+        setBiometriaHabilitada(estaActiva);
+      } else {
+        setBiometriaHabilitada(false);
+      }
     } catch (e) {
       setDispositivoSoportaBiometria(false);
+      setBiometriaHabilitada(false);
     }
   };
 
   const alternarBiometria = async (valor) => {
     if (valor) {
-      const [identificadorGuardado, contrasenaGuardada] = await Promise.all([
-        SecureStore.getItemAsync(CLAVE_USUARIO_GUARDADO),
-        SecureStore.getItemAsync(CLAVE_PASS_GUARDADA)
-      ]);
+      const cuentaGuardada = await obtenerBiometriaCuenta();
       const identificadoresSesion = [usuario?.email, usuario?.correo, usuario?.telefono]
         .map(normalizarIdentificador)
         .filter(Boolean);
 
-      if (
-        !contrasenaGuardada
-        || !identificadoresSesion.includes(normalizarIdentificador(identificadorGuardado))
-      ) {
-        await Promise.all([
-          SecureStore.deleteItemAsync(CLAVE_BIOMETRIA_ACTIVADA),
-          SecureStore.deleteItemAsync(CLAVE_USUARIO_GUARDADO),
-          SecureStore.deleteItemAsync(CLAVE_PASS_GUARDADA)
-        ]);
+      if (!cuentaGuardada || !identificadoresSesion.includes(normalizarIdentificador(cuentaGuardada.identificador))) {
+        await eliminarBiometriaCuenta();
         setBiometriaHabilitada(false);
         Alert.alert(
           'Vinculación requerida',
-          'Por seguridad, cierra sesión e inicia nuevamente con tu contraseña. Al ingresar se te preguntará si deseas vincular la biometría a esta cuenta.'
+          'Por seguridad, cierra sesión e inicia nuevamente con tu contraseña. Al ingresar se te preguntará si deseas vincular la huella digital a esta cuenta.'
         );
         return;
       }
 
       const auth = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Confirma tu huella para activar el acceso biométrico',
+        promptMessage: 'Confirma tu huella digital',
         fallbackLabel: 'Cancelar'
       });
 
       if (auth.success) {
-        await SecureStore.setItemAsync(CLAVE_BIOMETRIA_ACTIVADA, 'true');
         setBiometriaHabilitada(true);
-        Alert.alert('Biometría Activada', 'Ahora podrás ingresar rápidamente desde la pantalla de inicio de sesión.');
+        Alert.alert('Huella Activada', 'Ahora podrás ingresar rápidamente desde la pantalla de inicio de sesión.');
       }
     } else {
-      await Promise.all([
-        SecureStore.setItemAsync(CLAVE_BIOMETRIA_ACTIVADA, 'false'),
-        SecureStore.deleteItemAsync(CLAVE_USUARIO_GUARDADO),
-        SecureStore.deleteItemAsync(CLAVE_PASS_GUARDADA)
-      ]);
+      await eliminarBiometriaCuenta();
       setBiometriaHabilitada(false);
-      Alert.alert('Biometría Desactivada', 'Se ha retirado la opción de acceso por huella para tu cuenta.');
+      Alert.alert('Huella Desactivada', 'Se ha retirado la opción de acceso por huella para tu cuenta.');
     }
   };
 
@@ -221,7 +213,10 @@ export default function CuentaScreen({ navigation }) {
       {
         text: 'Salir',
         style: 'destructive',
-        onPress: cerrarSesionAuth
+        onPress: async () => {
+          await eliminarBiometriaCuenta();
+          cerrarSesionAuth();
+        }
       }
     ]);
   };
