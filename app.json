@@ -26,6 +26,7 @@
     },
     "plugins": [
       "expo-secure-store",
+      "./plugins/withDetoxAndroid",
       [
         "@reactvision/react-viro",
         {
