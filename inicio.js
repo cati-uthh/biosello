@@ -318,7 +318,7 @@ export default function InicioScreen({ navigation }) {
                 </TouchableOpacity>
             )}
 
-            <Text style={styles.preguntaSeccion}>¿Qué deseas hacer?</Text>
+            <Text style={styles.preguntaSeccion}>Bienvenido! ¿Qué deseas hacer hoy?</Text>
 
             <View style={styles.gridMenu}>
                 <TouchableOpacity style={styles.tarjetaMenu} onPress={() => setPantallaInterna('registrar_lote')}>

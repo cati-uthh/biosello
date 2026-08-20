@@ -232,13 +232,18 @@ export default function GenerarQR({ onVolver, idNegocio, nombreNegocio }) {
             ) : (
                 <View style={styles.contenedorEtiqueta}>
                     {(() => {
-                        const codigoTrazabilidad = String(loteSeleccionado.id_lote).padStart(10, '0');
+                        const idCorteActual = corteSeleccionadoObj?.id_corte || loteSeleccionado.id_corte || null;
+                        const codigoBase = loteSeleccionado.codigo_lote || String(loteSeleccionado.id_lote).padStart(10, '0');
+                        const codigoTrazabilidad = idCorteActual 
+                            ? `${codigoBase}-C${String(idCorteActual).padStart(2, '0')}`
+                            : codigoBase;
+
                         const valorQR = crearValorQR(
                             loteSeleccionado,
                             usuario,
                             idNegocioActivo,
                             {
-                                id_corte: corteSeleccionadoObj?.id_corte || loteSeleccionado.id_corte || null,
+                                id_corte: idCorteActual,
                                 incluir_tip_cuidado: incluirTipCuidado,
                                 incluir_recomendacion: incluirRecomendacion
                             }
@@ -536,7 +541,7 @@ const styles = StyleSheet.create({
         backgroundColor: PALETA.grisFondo 
     },
     marcoQR: { padding: 6, backgroundColor: PALETA.blancoPuro, borderRadius: 8, borderWidth: 1, borderColor: PALETA.grisBorde, marginBottom: 6 },
-    valorCodigoManual: { fontSize: 15, color: PALETA.textoOscuro, fontWeight: '900', letterSpacing: 1, marginTop: 2, textAlign: 'center' },
+    valorCodigoManual: { fontSize: 10, color: PALETA.textoOscuro, fontWeight: '900', letterSpacing: 1, marginTop: 2, textAlign: 'center' },
 
     seccionDescuento: { marginTop: 15, width: '100%', backgroundColor: PALETA.grisFondo, padding: 15, borderRadius: 10, borderWidth: 1, borderColor: PALETA.grisBorde },
     labelDescuento: { color: PALETA.textoOscuro, fontSize: 13, fontWeight: '700', marginBottom: 8 },
