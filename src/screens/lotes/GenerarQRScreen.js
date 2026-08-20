@@ -11,9 +11,10 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { Ionicons } from '@expo/vector-icons';
-import { AuthContext } from './AuthContext';
-import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
-import { crearValorQR } from './src/utils/qr';
+import { API_BASE_URL } from '../../config/api';
+import { AuthContext } from '../../context/AuthContext';
+import { getAuthHeaders } from '../../utils/auth';
+import { crearValorQR } from '../../utils/qr';
 
 // PALETA OFICIAL BIOSELLO (SIN AMARILLO)
 const PALETA = {

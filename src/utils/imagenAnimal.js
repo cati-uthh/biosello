@@ -1,7 +1,8 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
-import { API_BASE_URL, getAuthHeaders, getAuthToken } from './auth';
+import { API_BASE_URL } from '../config/api';
+import { getAuthHeaders, getAuthToken } from './auth';
 
 export const TAMANIO_MAXIMO_IMAGEN_ANIMAL = 3 * 1024 * 1024;
 

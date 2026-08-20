@@ -15,9 +15,10 @@ import {
     useWindowDimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { AuthContext } from './AuthContext';
-import { COLORS, FONTS, SIZES } from './src/theme/theme';
-import { API_BASE_URL, getAuthHeaders, getAuthToken } from './src/utils/auth';
+import { API_BASE_URL } from '../../config/api';
+import { AuthContext } from '../../context/AuthContext';
+import { COLORS, FONTS, SIZES } from '../../theme/theme';
+import { getAuthHeaders, getAuthToken } from '../../utils/auth';
 
 const FORM_INICIAL = {
     nombre: '',

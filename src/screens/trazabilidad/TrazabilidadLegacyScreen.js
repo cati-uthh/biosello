@@ -12,9 +12,8 @@ import {
     View
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, FONTS } from './src/theme/theme';
-
-const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
+import { API_BASE_URL } from '../../config/api';
+import { COLORS, SIZES, FONTS } from '../../theme/theme';
 
 const formatearParaUI = (fecha) => {
     if (!fecha) return 'N/D';

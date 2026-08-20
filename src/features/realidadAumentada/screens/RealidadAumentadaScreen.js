@@ -17,12 +17,12 @@ import {
     ViroARSceneNavigator,
     ViroTrackingStateConstants
 } from '@reactvision/react-viro';
-import { COLORS, FONTS, SIZES } from '../theme/theme';
-import EscenaAnimalRA from './EscenaAnimalRA';
+import { COLORS, FONTS, SIZES } from '../../../theme/theme';
+import EscenaAnimalRA from '../components/EscenaAnimalRA';
 import {
     normalizarAnimalRA,
     obtenerNombreAnimalRA
-} from './ModeloAnimal';
+} from '../components/ModeloAnimal';
 
 const ESCENA_INICIAL = { scene: EscenaAnimalRA };
 

@@ -10,7 +10,7 @@ import {
     Dimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SIZES, FONTS } from './src/theme/theme';
+import { COLORS, SIZES, FONTS } from '../../theme/theme';
 
 
 const { width, height } = Dimensions.get('window');
@@ -122,7 +122,7 @@ export default function SplashScreen({ onFinish }) {
                 
                 <View style={styles.logoContainer}>
                     <Image
-                        source={require('./assets/icon-clean-background.png')} 
+                        source={require('../../../assets/icon-clean-background.png')} 
                         style={styles.logo}
                         resizeMode="contain"
                     />

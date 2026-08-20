@@ -8,7 +8,8 @@ embebidos. No se descargan recursos durante la experiencia de RA.
   `43.22633°`.
 
 Ambos quedan apoyados en Y=0 y con un largo aproximado de 0.48 m. Los ajustes
-se encuentran en `src/realidad-aumentada/ModeloAnimal.js`.
+se encuentran en
+`src/features/realidadAumentada/components/ModeloAnimal.js`.
 
 ## Atribuciones
 

@@ -15,14 +15,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import GenerarQR from './generarQR';
-import RegistrarLoteAnimal from './RegistrarLoteAnimal';
-import MisLotes from './MisLotes';
-import ActGestionSucursales from './ActGestionSucursales'; // Nueva pantalla
-import GestionEmpleados from './GestionEmpleados';
-import { AuthContext } from './AuthContext';
-import { COLORS, SIZES, FONTS } from './src/theme/theme';
-import { API_BASE_URL, esPerfilAdministrador, getAuthHeaders } from './src/utils/auth';
+import GenerarQR from '../lotes/GenerarQRScreen';
+import RegistrarLoteAnimal from '../lotes/RegistrarLoteAnimalScreen';
+import MisLotes from '../lotes/MisLotesScreen';
+import ActGestionSucursales from '../sucursales/GestionSucursalesScreen';
+import GestionEmpleados from '../empleados/GestionEmpleadosScreen';
+import { API_BASE_URL } from '../../config/api';
+import { AuthContext } from '../../context/AuthContext';
+import { COLORS, SIZES, FONTS } from '../../theme/theme';
+import { esPerfilAdministrador, getAuthHeaders } from '../../utils/auth';
 
 const diasParaVencer = (fecha) => {
     if (!fecha) return null;
@@ -169,7 +170,7 @@ export default function InicioScreen({ navigation }) {
                     <Text style={styles.tituloInvitacion}>Toma el control de tu inventario</Text>
                 </Animated.View>
                 <Animated.View style={{ opacity: fadeIcono }}>
-                    <Image source={require('./assets/icon.png')} style={styles.iconoCuadrado} resizeMode="cover" />
+                    <Image source={require('../../../assets/icon.png')} style={styles.iconoCuadrado} resizeMode="cover" />
                 </Animated.View>
                 <Animated.View style={{ opacity: fadeTexto }}>
                     <Text style={styles.descripcionInvitacion}>Registra tus lotes, monitorea la cadena de frío y genera códigos QR de trazabilidad.</Text>

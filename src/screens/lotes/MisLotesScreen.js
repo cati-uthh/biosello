@@ -12,10 +12,11 @@ import {
     View
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import CalendarioModal from './CalendarioModal';
-import { AuthContext } from './AuthContext';
-import { COLORS, SIZES, FONTS } from './src/theme/theme';
-import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
+import CalendarioModal from '../../components/common/CalendarioModal';
+import { API_BASE_URL } from '../../config/api';
+import { AuthContext } from '../../context/AuthContext';
+import { COLORS, SIZES, FONTS } from '../../theme/theme';
+import { getAuthHeaders } from '../../utils/auth';
 
 // --- AYUDANTES DE FORMATEO DE FECHA ---
 const formatearParaUI = (fecha) => {

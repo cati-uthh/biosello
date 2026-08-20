@@ -1,4 +1,5 @@
-import { API_BASE_URL, getAuthHeaders } from './auth';
+import { API_BASE_URL } from '../config/api';
+import { getAuthHeaders } from './auth';
 
 export { API_BASE_URL };
 

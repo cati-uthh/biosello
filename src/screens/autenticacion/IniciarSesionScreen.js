@@ -15,9 +15,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
-import { AuthContext } from './AuthContext';
-import { COLORS, SIZES, FONTS } from './src/theme/theme';
-import { API_BASE_URL, normalizarUsuarioSesion } from './src/utils/auth';
+import { API_BASE_URL } from '../../config/api';
+import { AuthContext } from '../../context/AuthContext';
+import { COLORS, SIZES, FONTS } from '../../theme/theme';
+import { normalizarUsuarioSesion } from '../../utils/auth';
 
 const CLAVE_USUARIO_GUARDADO = 'biosello_usuario_identificador';
 const CLAVE_PASS_GUARDADA = 'biosello_usuario_pass';
@@ -232,7 +233,7 @@ export default function ActInicioSesion({ navigation }) {
         >
             <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
                 <View style={styles.logoContainer}>
-                    <Image source={require('./assets/logo-oficial.png')} style={styles.logo} resizeMode="contain" />
+                    <Image source={require('../../../assets/logo-oficial.png')} style={styles.logo} resizeMode="contain" />
                 </View>
 
                 <View style={styles.formContainer}>

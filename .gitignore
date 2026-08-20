@@ -39,3 +39,10 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Detox / E2E
+/.detoxrc.js
+/e2e/README.md
+/e2e/inicio.test.js
+/e2e/jest.config.js
+/plugins/withDetoxAndroid.js

@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'https://biosello-backend.vercel.app/api';
+export { API_BASE_URL } from '../config/api';
 
 export const normalizarUsuarioSesion = (data = {}) => {
     const usuarioBase = data?.usuario || data?.user || data?.data || data;

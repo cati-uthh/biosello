@@ -14,8 +14,8 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, FONTS } from './src/theme/theme';
-import { API_BASE_URL } from './src/utils/auth';
+import { API_BASE_URL } from '../../config/api';
+import { COLORS, SIZES, FONTS } from '../../theme/theme';
 
 const passwordRules = [
     { key: 'length', text: 'Mínimo 8 caracteres', test: (value) => value.length >= 8 },

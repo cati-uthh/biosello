@@ -13,9 +13,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
-import { AuthContext } from './AuthContext';
-import { COLORS, SIZES, FONTS } from './src/theme/theme';
-import { API_BASE_URL, getAuthHeaders } from './src/utils/auth';
+import { API_BASE_URL } from '../../config/api';
+import { AuthContext } from '../../context/AuthContext';
+import { COLORS, SIZES, FONTS } from '../../theme/theme';
+import { getAuthHeaders } from '../../utils/auth';
 const CLAVE_BIOMETRIA_ACTIVADA = 'biosello_biometria_activada';
 const CLAVE_USUARIO_GUARDADO = 'biosello_usuario_identificador';
 const CLAVE_PASS_GUARDADA = 'biosello_usuario_pass';

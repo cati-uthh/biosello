@@ -4,7 +4,7 @@ import {
   esTokenSesionVigente,
   normalizarUsuarioSesion,
   obtenerExpiracionToken
-} from './src/utils/auth';
+} from '../utils/auth';
 
 const SESSION_FILE = `${FileSystem.documentDirectory}biosello_session.json`;
 
