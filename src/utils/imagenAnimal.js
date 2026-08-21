@@ -178,13 +178,28 @@ const obtenerValorAnidado = (datos, ruta) => ruta.reduce(
 );
 
 export const obtenerUriImagenAnimal = (datos) => {
+    if (!datos || typeof datos !== 'object') return null;
+
     const rutasCompatibles = [
         ['detalles_trazabilidad', 'imagen_animal_url'],
+        ['detalles_trazabilidad', 'imagen_url'],
+        ['detalles_trazabilidad', 'foto_animal'],
+        ['detalles_trazabilidad', 'foto'],
+        ['detalles_trazabilidad', 'imagen'],
         ['animal', 'imagen_animal_url'],
+        ['animal', 'imagen_url'],
+        ['animal', 'foto'],
+        ['animal', 'imagen'],
         ['imagen_animal_url'],
+        ['imagen_url'],
+        ['foto_animal_url'],
+        ['url_imagen'],
+        ['foto'],
+        ['imagen'],
         ['data', 'detalles_trazabilidad', 'imagen_animal_url'],
         ['data', 'animal', 'imagen_animal_url'],
-        ['data', 'imagen_animal_url']
+        ['data', 'imagen_animal_url'],
+        ['data', 'imagen_url']
     ];
 
     for (const ruta of rutasCompatibles) {
@@ -192,7 +207,24 @@ export const obtenerUriImagenAnimal = (datos) => {
         if (/^https?:\/\//i.test(valor)) return valor;
     }
 
-    return null;
+    // Búsqueda recursiva para URLs de Vercel Blob en cualquier propiedad del objeto
+    const buscarUrlBlob = (obj, profundidad = 0) => {
+        if (!obj || typeof obj !== 'object' || profundidad > 3) return null;
+        for (const clave of Object.keys(obj)) {
+            const valor = obj[clave];
+            if (typeof valor === 'string' && /^https?:\/\//i.test(valor.trim())) {
+                if (valor.includes('blob.vercel-storage.com') || /\.(jpg|jpeg|png|webp)/i.test(valor)) {
+                    return valor.trim();
+                }
+            } else if (typeof valor === 'object' && valor !== null) {
+                const encontrada = buscarUrlBlob(valor, profundidad + 1);
+                if (encontrada) return encontrada;
+            }
+        }
+        return null;
+    };
+
+    return buscarUrlBlob(datos);
 };
 
 export const liberarUriImagenTemporal = (uri) => {

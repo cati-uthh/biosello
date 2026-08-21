@@ -17,18 +17,44 @@ import { Camera } from 'expo-camera';
 import { API_BASE_URL } from '../../config/api';
 import { AuthContext } from '../../context/AuthContext';
 import { COLORS, SIZES, FONTS } from '../../theme/theme';
-import { getAuthHeaders } from '../../utils/auth';
 import { extraerIdentificadorQR } from '../../utils/qr';
 import { obtenerUriImagenAnimal } from '../../utils/imagenAnimal';
 
 const formatearParaUI = (fecha) => {
     if (!fecha) return 'N/D';
     if (fecha.includes('/')) return fecha; 
-    const partes = fecha.split('-');
+    const partes = fecha.split('T')[0].split('-');
     if (partes.length === 3 && partes[0].length === 4) {
         return `${partes[2]}/${partes[1]}/${partes[0]}`;
     }
     return fecha;
+};
+
+const enmascararArete = (arete) => {
+    if (!arete) return 'N/D';
+    const str = String(arete).trim();
+    if (str.length <= 4) return str;
+    const ultimos4 = str.slice(-4);
+    const primeros = str.slice(0, Math.max(0, str.length - 4));
+    return `${primeros.replace(/[0-9a-zA-Z]/g, '*')}${ultimos4}`;
+};
+
+const calcularFechaConsumoFallback = (fechaEmpaque) => {
+    if (fechaEmpaque) {
+        try {
+            const partes = String(fechaEmpaque).split('T')[0].split('-');
+            if (partes.length === 3 && partes[0].length === 4) {
+                const d = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+                d.setDate(d.getDate() + 5);
+                const dia = String(d.getDate()).padStart(2, '0');
+                const mes = String(d.getMonth() + 1).padStart(2, '0');
+                const anio = d.getFullYear();
+                return `${dia}/${mes}/${anio}`;
+            }
+        } catch {
+        }
+    }
+    return 'N/D';
 };
 
 const normalizarTextoEspecie = (valor) => String(valor || '')
@@ -45,26 +71,46 @@ const obtenerAnimalRA = (datos) => {
         datos?.especie_nombre,
         datos?.tipo_carne,
         datos?.categoria,
-        datos?.producto
+        datos?.tipo_corte
     ];
 
     for (const valor of valoresPosibles) {
         const especie = normalizarTextoEspecie(valor);
-        if (/PORCIN|CERDO|PORK/.test(especie)) {
+        if (/PORCIN|CERDO|PORK|COCHIN|LECHON/.test(especie)) {
             return 'cerdo';
         }
-        if (/BOVIN|VACA|BEEF/.test(especie) || /(^|[^A-Z])RES([^A-Z]|$)/.test(especie)) {
+        if (/BOVIN|VACA|BEEF|TORO|BECERR/.test(especie) || /(^|[^A-Z])RES([^A-Z]|$)/.test(especie)) {
             return 'vaca';
         }
     }
 
-    return null;
+    return 'vaca';
+};
+
+const formatearEntradaLote = (texto) => {
+    if (!texto) return '';
+    const textoStr = String(texto).trim().toUpperCase();
+    
+    // Extraer únicamente los dígitos numéricos
+    const soloDigitos = textoStr.replace(/\D/g, '');
+    if (!soloDigitos) return '';
+
+    if (soloDigitos.length <= 4) {
+        return `LOT-${soloDigitos}`;
+    }
+    if (soloDigitos.length <= 6) {
+        return `LOT-${soloDigitos.slice(0, 4)}-${soloDigitos.slice(4, 6)}`;
+    }
+    if (soloDigitos.length <= 9) {
+        return `LOT-${soloDigitos.slice(0, 4)}-${soloDigitos.slice(4, 6)}-${soloDigitos.slice(6, 9)}`;
+    }
+    // Si incluye los dígitos del corte (ej. 20260800102 -> LOT-2026-08-001-C02)
+    return `LOT-${soloDigitos.slice(0, 4)}-${soloDigitos.slice(4, 6)}-${soloDigitos.slice(6, 9)}-C${soloDigitos.slice(9, 11)}`;
 };
 
 export default function IngresoManual({ route, navigation }) {
     const { usuario } = useContext(AuthContext);
     const { width } = useWindowDimensions();
-    // Si la pantalla fue abierta por el Escáner, recibe el código aquí
     const codigoEscaneado = route?.params?.codigoQR || '';
     const consultaDesdeQR = route?.params?.origenConsulta === 'qr';
     const idCorteEscaneado = route?.params?.id_corte || '';
@@ -83,14 +129,22 @@ export default function IngresoManual({ route, navigation }) {
     const imagenAnimalUrl = obtenerUriImagenAnimal(datosLote);
     const recomendacionCorte = datosLote?.tip_recomendacion
         || datosLote?.recomendacion
+        || datosLote?.data?.tip_recomendacion
+        || datosLote?.data?.recomendacion
         || datosLote?.detalles_trazabilidad?.tip_recomendacion
         || datosLote?.detalles_trazabilidad?.recomendacion
+        || datosLote?.data?.detalles_trazabilidad?.tip_recomendacion
+        || datosLote?.data?.detalles_trazabilidad?.recomendacion
+        || datosLote?.corte?.recomendacion
+        || datosLote?.corte?.tip_recomendacion
         || null;
-    const multimediaCompacta = width < 380;
-    const anchoImagen = width >= 720 ? 190 : multimediaCompacta ? 118 : 138;
-    const alturaMultimedia = width >= 720 ? 190 : multimediaCompacta ? 132 : 166;
+    const tipCuidadoCorte = datosLote?.tip_cuidado
+        || datosLote?.data?.tip_cuidado
+        || datosLote?.detalles_trazabilidad?.tip_cuidado
+        || datosLote?.data?.detalles_trazabilidad?.tip_cuidado
+        || datosLote?.corte?.tip_cuidado
+        || null;
 
-    // Si viene del escáner con datos, busca automáticamente
     useEffect(() => {
         if (codigoEscaneado) {
             handleBuscar(codigoEscaneado);
@@ -102,12 +156,36 @@ export default function IngresoManual({ route, navigation }) {
         setReintentosImagen(0);
     }, [imagenAnimalUrl]);
 
+    const handleCambioTexto = (valor) => {
+        if (!valor || valor === 'LOT' || valor === 'LOT-') {
+            setCodigo('');
+            return;
+        }
+        setCodigo(formatearEntradaLote(valor));
+    };
+
     const handleBuscar = async (codigoABuscar = codigo) => {
         const identificador = extraerIdentificadorQR(codigoABuscar);
-        const idLimpiado = identificador?.idLote || identificador?.codigoLote || '';
+        let idLimpiado = (identificador?.idLote || identificador?.codigoLote || codigoABuscar || '').trim();
+        let idCorteExtraido = identificador?.idCorte || (consultaDesdeQR ? idCorteEscaneado : '');
+        let incluirTipCuidado = identificador?.incluirTipCuidado !== undefined 
+            ? identificador.incluirTipCuidado 
+            : (consultaDesdeQR ? incluirTipCuidadoEscaneado : true);
+        let incluirRecomendacion = identificador?.incluirRecomendacion !== undefined 
+            ? identificador.incluirRecomendacion 
+            : (consultaDesdeQR ? incluirRecomendacionEscaneada : true);
+
+        // Si el código incluye el sufijo del corte (ej. LOT-2026-08-001-C02)
+        const matchCorte = idLimpiado.match(/^(.+)[-_]C(\d+)$/i);
+        if (matchCorte) {
+            idLimpiado = matchCorte[1].trim();
+            if (!idCorteExtraido) {
+                idCorteExtraido = String(Number(matchCorte[2]));
+            }
+        }
         
-        if (idLimpiado === '') {
-            Alert.alert('Código requerido', 'Por favor, ingrese un número válido.');
+        if (!idLimpiado) {
+            Alert.alert('Código requerido', 'Por favor, ingrese un código o número de lote válido.');
             return;
         }
 
@@ -116,33 +194,58 @@ export default function IngresoManual({ route, navigation }) {
         setDatosLote(null);
 
         try {
-            const idTexto = String(idLimpiado).trim();
-            if (!/^\d+$/.test(idTexto)) {
-                setErrorData('El código debe contener un identificador numérico de lote.');
-                return;
+            const params = new URLSearchParams();
+            if (idCorteExtraido) {
+                params.append('id_corte', String(idCorteExtraido));
             }
-            const idNumerico = Number(idTexto);
-            if (!Number.isSafeInteger(idNumerico) || idNumerico <= 0) {
-                setErrorData('El identificador del lote no es válido.');
-                return;
+            params.append('incluir_tip_cuidado', String(incluirTipCuidado));
+            params.append('incluir_recomendacion', String(incluirRecomendacion));
+
+            let result = null;
+
+            // Lista de posibles candidatos para consulta pública
+            const candidatos = [];
+            candidatos.push(idLimpiado);
+
+            const soloDigitos = idLimpiado.replace(/\D/g, '');
+            if (soloDigitos.length === 9) {
+                candidatos.push(`LOT-${soloDigitos.slice(0, 4)}-${soloDigitos.slice(4, 6)}-${soloDigitos.slice(6, 9)}`);
+            } else if (soloDigitos.length === 11) {
+                candidatos.push(`LOT-${soloDigitos.slice(0, 4)}-${soloDigitos.slice(4, 6)}-${soloDigitos.slice(6, 9)}`);
+            }
+            if (idLimpiado.startsWith('LOT-')) {
+                candidatos.push(idLimpiado.replace('LOT-', 'LOTE-'));
+            } else if (idLimpiado.startsWith('LOTE-')) {
+                candidatos.push(idLimpiado.replace('LOTE-', 'LOT-'));
+            } else if (soloDigitos.length > 0 && !idLimpiado.startsWith('LOT')) {
+                candidatos.push(`LOT-${idLimpiado}`);
             }
 
-            const params = new URLSearchParams({ id_lote: String(idNumerico) });
-            if (consultaDesdeQR) {
-                if (idCorteEscaneado) params.append('id_corte', String(idCorteEscaneado));
-                params.append('incluir_tip_cuidado', String(incluirTipCuidadoEscaneado));
-                params.append('incluir_recomendacion', String(incluirRecomendacionEscaneada));
+            const vistos = new Set();
+            for (const cand of candidatos) {
+                const term = String(cand).trim();
+                if (!term || vistos.has(term.toUpperCase())) continue;
+                vistos.add(term.toUpperCase());
+
+                params.set('id_lote', term);
+
+                try {
+                    // Consulta pública directa sin filtros de sesión de usuario
+                    const response = await fetch(`${API_BASE_URL}/obtenerTrazabilidad?${params.toString()}`);
+                    const json = await response.json();
+                    if (response.ok && json && json.success) {
+                        result = json;
+                        break;
+                    }
+                } catch (e) {
+                    // Continuar con el siguiente candidato
+                }
             }
 
-            const response = await fetch(`${API_BASE_URL}/obtenerTrazabilidad?${params.toString()}`, {
-                headers: getAuthHeaders(usuario)
-            });
-            const result = await response.json();
-
-            if (result.success) {
+            if (result && result.success) {
                 setDatosLote(result);
             } else {
-                setErrorData(result.error || 'El lote no existe o no fue encontrado en el sistema.');
+                setErrorData('El lote no existe o no fue encontrado en el sistema.');
             }
         } catch (error) {
             setErrorData('No se pudo conectar con el servidor.');
@@ -152,7 +255,7 @@ export default function IngresoManual({ route, navigation }) {
     };
 
     const abrirRealidadAumentada = async () => {
-        if (!consultaDesdeQR || !animalRA || abriendoRA) return;
+        if (!animalRA || abriendoRA) return;
 
         setAbriendoRA(true);
         try {
@@ -181,243 +284,257 @@ export default function IngresoManual({ route, navigation }) {
 
             navigation.navigate('RealidadAumentada', {
                 animal: animalRA,
-                origen: 'consulta-qr',
-                loteId: datosLote?.lote_id
+                origen: 'IngresoManual'
             });
         } catch (error) {
             Alert.alert(
-                'No se pudo abrir la cámara',
-                'Ocurrió un problema al comprobar el permiso. Intenta nuevamente.'
+                'No se pudo iniciar Realidad Aumentada',
+                'Ocurrió un error al abrir el visor de RA.'
             );
         } finally {
             setAbriendoRA(false);
         }
     };
 
-    // Componente reutilizable para la tabla
-    const FilaTabla = ({ label, valor, destacar = false }) => (
-        <View style={styles.filaTabla}>
-            <Text style={styles.labelTabla}>{label}</Text>
-            <Text style={[styles.valorTabla, destacar && styles.valorDestacado]}>{valor || 'N/D'}</Text>
-        </View>
-    );
+    const reintentarCargaImagenAnimal = () => {
+        setErrorImagenAnimal(false);
+        setReintentosImagen((prev) => prev + 1);
+    };
+
+    const uriImagenAnimalFinal = imagenAnimalUrl
+        ? `${imagenAnimalUrl}${imagenAnimalUrl.includes('?') ? '&' : '?'}retry=${reintentosImagen}`
+        : null;
+
+    const FilaTabla = ({ label, valor }) => {
+        if (!valor && valor !== 0) return null;
+        return (
+            <View style={styles.filaTabla}>
+                <Text style={styles.labelTabla}>{label}</Text>
+                <Text style={styles.valorTabla}>{String(valor)}</Text>
+            </View>
+        );
+    };
+
+    // Formateo de fechas
+    const fechaProduccionFormateada = formatearParaUI(datosLote?.fecha_empaque || datosLote?.fecha_ingreso);
+    const fechaConsumoFormateada = datosLote?.fecha_vencimiento 
+        ? formatearParaUI(datosLote.fecha_vencimiento) 
+        : calcularFechaConsumoFallback(datosLote?.fecha_empaque || datosLote?.fecha_ingreso);
+
+    // Tips y recomendaciones combinadas
+    const tipsCuidadoArray = [];
+    const procesarTextoTip = (texto) => {
+        if (!texto) return;
+        if (typeof texto === 'string' && texto.includes('|')) {
+            texto.split('|').map(t => t.trim()).filter(Boolean).forEach(t => {
+                if (!tipsCuidadoArray.includes(t)) tipsCuidadoArray.push(t);
+            });
+        } else if (typeof texto === 'string') {
+            const limpio = texto.trim();
+            if (limpio && !tipsCuidadoArray.includes(limpio)) tipsCuidadoArray.push(limpio);
+        }
+    };
+
+    procesarTextoTip(tipCuidadoCorte);
+    procesarTextoTip(recomendacionCorte);
+
+    if (tipsCuidadoArray.length === 0) {
+        tipsCuidadoArray.push('Mantener en refrigeración de 0° a 4°C.');
+        tipsCuidadoArray.push('Cocinar completamente antes de consumir.');
+    }
 
     return (
-        <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
+            {/* ENCABEZADO SUPERIOR */}
             <View style={styles.encabezadoNavegacion}>
                 <TouchableOpacity
                     style={styles.botonVolver}
-                    onPress={() => navigation.goBack()}
+                    onPress={() => {
+                        if (datosLote && !consultaDesdeQR) {
+                            setDatosLote(null);
+                            setCodigo('');
+                        } else {
+                            navigation.goBack();
+                        }
+                    }}
                     activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel="Volver al escáner"
                 >
-                    <Ionicons name="arrow-back" size={20} color={COLORS.azulMarino} />
-                    <Text style={styles.textoVolver}>Volver al escáner</Text>
+                    <Ionicons name="arrow-back" size={22} color={COLORS.azulMarino} />
+                    <Text style={styles.textoVolver}>
+                        {consultaDesdeQR ? 'Volver a escanear' : (datosLote ? 'Volver a escanear' : 'Atrás')}
+                    </Text>
                 </TouchableOpacity>
+                {datosLote && (
+                    <Text style={styles.tituloResultado}>Resultado:</Text>
+                )}
+                <View style={{ width: 40 }} />
             </View>
 
-            {/* 1. VISTA DE CARGA */}
-            {loading && (
-                <View style={styles.estadoCentrado}>
-                    <ActivityIndicator size="large" color={COLORS.rojoIntenso} />
-                    <Text style={styles.estadoTexto}>Consultando bases de datos...</Text>
-                </View>
-            )}
-
-            {/* 2. VISTA DE ERROR */}
-            {errorData && !loading && (
-                <View style={styles.estadoCentrado}>
-                    <Ionicons name="alert-circle" size={60} color={COLORS.rojoIntenso} />
-                    <Text style={styles.tituloError}>Lote no encontrado</Text>
-                    <Text style={styles.textoError}>{errorData}</Text>
-                    <TouchableOpacity style={[styles.primaryButton, {marginTop: 20}]} onPress={() => setErrorData(null)}>
-                        <Text style={styles.buttonText}>Intentar de nuevo</Text>
-                    </TouchableOpacity>
-                </View>
-            )}
-
-            {/* 3. VISTA ORIGINAL (Tu diseño de Búsqueda Manual) */}
+            {/* VISTA 1: FORMULARIO DE BÚSQUEDA MANUAL */}
             {!datosLote && !loading && !errorData && (
                 <View style={styles.containerOriginal}>
-                    <Text style={styles.title}>
-                        Coloque el número de código QR{'\n'}en el cuadro para escanear
+                    <Text style={styles.title}>Ingreso manual de código</Text>
+                    <Text style={styles.subtituloAyuda}>
+                        Ingresa solo los números del código de tu etiqueta.
                     </Text>
-
+                    
                     <TextInput
                         style={styles.input}
-                        placeholder="Ingrese aquí el número"
-                        placeholderTextColor="#666"
-                        keyboardType="numeric"
+                        placeholder="Ej. 2026-07-005 o 005"
+                        placeholderTextColor="#999"
                         value={codigo}
-                        onChangeText={setCodigo}
+                        onChangeText={handleCambioTexto}
+                        autoCapitalize="characters"
+                        keyboardType="numeric"
+                        maxLength={25}
                     />
 
-                    <TouchableOpacity style={styles.primaryButton} onPress={() => handleBuscar()}>
-                        <Text style={styles.buttonText}>Buscar</Text>
+                    <TouchableOpacity 
+                        style={styles.primaryButton} 
+                        onPress={() => handleBuscar()}
+                    >
+                        <Text style={styles.buttonText}>Buscar código</Text>
                     </TouchableOpacity>
 
-                    <Image
-                        source={require('../../../assets/ayuda-qr.png')} 
-                        style={styles.helpImage}
-                        resizeMode="contain"
+                    <Image 
+                        source={require('../../../assets/example-qr.png')} 
+                        style={styles.helpImage} 
+                        resizeMode="contain" 
                     />
-
+                    
                     <Text style={styles.helpText}>
-                        El numero se encuentra en la parte inferior{'\n'}del código QR
+                        Ingresa únicamente los números que aparecen debajo del código QR de tu etiqueta de carne para conocer el origen exacto del producto.
                     </Text>
                 </View>
             )}
 
-            {/* 4. VISTA DE RESULTADOS (Ficha Técnica de Trazabilidad) */}
+            {/* ESTADO CARGANDO */}
+            {loading && (
+                <View style={styles.estadoCentrado}>
+                    <ActivityIndicator size="large" color={COLORS.azulMarino} />
+                    <Text style={styles.estadoTexto}>Consultando origen y trazabilidad...</Text>
+                </View>
+            )}
+
+            {/* ESTADO ERROR */}
+            {errorData && !loading && (
+                <View style={styles.estadoCentrado}>
+                    <Ionicons name="alert-circle-outline" size={60} color={COLORS.rojoIntenso} />
+                    <Text style={styles.tituloError}>Lote no encontrado</Text>
+                    <Text style={styles.textoError}>{errorData}</Text>
+                    
+                    <TouchableOpacity
+                        style={[styles.primaryButton, { marginTop: 25, width: '80%' }]}
+                        onPress={() => {
+                            if (consultaDesdeQR) {
+                                navigation.goBack();
+                                return;
+                            }
+                            setErrorData(null);
+                        }}
+                    >
+                        <Text style={styles.buttonText}>{consultaDesdeQR ? 'Volver a escanear' : 'Intentar de nuevo'}</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            {/* VISTA 2: RESULTADOS DE TRAZABILIDAD (DISEÑO FIGMA OFICIAL) */}
             {datosLote && !loading && (
                 <View style={styles.contenedorResultados}>
-                    {consultaDesdeQR && (
-                        <View style={styles.tarjetaMultimedia}>
-                            <View style={styles.encabezadoTarjeta}>
-                                <Ionicons name="image" size={18} color={COLORS.azulCeruleo} />
-                                <Text style={styles.tituloTarjetaDatos}>Fotografía y experiencia RA</Text>
-                            </View>
-                            <View style={styles.filaMultimedia}>
-                                <View
-                                    style={[
-                                        styles.marcoImagenAnimal,
-                                        { width: anchoImagen, height: alturaMultimedia }
-                                    ]}
-                                >
-                                    {imagenAnimalUrl && !errorImagenAnimal ? (
-                                        <Image
-                                            source={{ uri: imagenAnimalUrl }}
-                                            key={`${imagenAnimalUrl}-${reintentosImagen}`}
-                                            style={styles.imagenAnimal}
-                                            resizeMode="cover"
-                                            onError={() => setErrorImagenAnimal(true)}
-                                            accessibilityLabel="Fotografía registrada del animal"
-                                        />
-                                    ) : (
-                                        <View style={styles.imagenNoDisponible}>
-                                            <Ionicons name="image-outline" size={32} color="#94a3b8" />
-                                            <Text style={styles.tituloSinImagen}>
-                                                {imagenAnimalUrl && errorImagenAnimal ? 'No se pudo cargar' : 'Sin fotografía'}
-                                            </Text>
-                                            <Text style={styles.textoSinImagen}>
-                                                {imagenAnimalUrl && errorImagenAnimal
-                                                    ? 'Revisa tu conexión e intenta otra vez.'
-                                                    : 'No hay una imagen disponible para este lote.'}
-                                            </Text>
-                                            {imagenAnimalUrl && errorImagenAnimal && (
-                                                <TouchableOpacity
-                                                    style={styles.botonReintentarImagen}
-                                                    onPress={() => {
-                                                        setErrorImagenAnimal(false);
-                                                        setReintentosImagen((valor) => valor + 1);
-                                                    }}
-                                                    accessibilityRole="button"
-                                                    accessibilityLabel="Reintentar carga de fotografía"
-                                                >
-                                                    <Text style={styles.textoReintentarImagen}>Reintentar</Text>
-                                                </TouchableOpacity>
-                                            )}
-                                        </View>
-                                    )}
-                                </View>
+                    {/* BADGE DE CARNICERÍA */}
+                    <View style={styles.badgeCarniceriaFigma}>
+                        <Text style={styles.textoBadgeCarniceria}>
+                            Carnicería "{datosLote.detalles_trazabilidad?.establecimiento || datosLote.establecimiento || 'cochinon'}"
+                        </Text>
+                        <Ionicons name="checkmark-circle" size={20} color="#10b981" style={{ marginLeft: 8 }} />
+                    </View>
 
-                                {animalRA && (
+                    {/* MARCO DE FOTOGRAFÍA DEL ANIMAL CON BOTÓN OVERLAY DE RA */}
+                    <View style={styles.marcoFotoAnimalFigma}>
+                        {uriImagenAnimalFinal && !errorImagenAnimal ? (
+                            <Image
+                                source={{ uri: uriImagenAnimalFinal }}
+                                style={styles.fotoAnimalFigma}
+                                resizeMode="cover"
+                                onError={() => setErrorImagenAnimal(true)}
+                            />
+                        ) : (
+                            <View style={styles.marcoSinFotoFigma}>
+                                <Ionicons name="image-outline" size={38} color="#94a3b8" />
+                                <Text style={styles.tituloSinFotoFigma}>Fotografía del animal</Text>
+                                <Text style={styles.textoSinFotoFigma}>
+                                    {errorImagenAnimal
+                                        ? 'No se pudo cargar la imagen del animal.'
+                                        : 'Fotografía no disponible para este lote.'}
+                                </Text>
+                                {errorImagenAnimal && (
                                     <TouchableOpacity
-                                        style={[
-                                            styles.botonRA,
-                                            { height: alturaMultimedia },
-                                            abriendoRA && styles.botonDeshabilitado
-                                        ]}
-                                        onPress={abrirRealidadAumentada}
-                                        disabled={abriendoRA}
-                                        activeOpacity={0.78}
-                                        accessibilityRole="button"
-                                        accessibilityLabel={`Ver ${animalRA === 'cerdo' ? 'cerdo' : 'vaca'} en Realidad Aumentada`}
-                                        accessibilityState={{ disabled: abriendoRA, busy: abriendoRA }}
+                                        style={styles.botonReintentarFotoFigma}
+                                        onPress={reintentarCargaImagenAnimal}
                                     >
-                                        <View style={styles.iconoRA}>
-                                            <Ionicons name="cube-outline" size={25} color={COLORS.blancoPuro} />
-                                        </View>
-                                        <Text style={styles.tituloBotonRA}>Realidad Aumentada</Text>
-                                        {!multimediaCompacta && (
-                                            <Text style={styles.subtituloBotonRA}>
-                                                Observa el animal en una representación a escala.
-                                            </Text>
-                                        )}
-                                        <View style={styles.accionRA}>
-                                            {abriendoRA
-                                                ? <ActivityIndicator size="small" color={COLORS.blancoPuro} />
-                                                : <><Text style={styles.textoAccionRA}>Abrir RA</Text><Ionicons name="arrow-forward" size={16} color={COLORS.blancoPuro} /></>}
-                                        </View>
+                                        <Text style={styles.textoReintentarFotoFigma}>Reintentar carga</Text>
                                     </TouchableOpacity>
                                 )}
                             </View>
-                        </View>
-                    )}
+                        )}
 
-                    <View style={styles.tarjetaAprobada}>
-                        <Ionicons name="checkmark-circle" size={28} color="#10b981" style={{ marginRight: 8 }} />
-                        <Text style={styles.textoAprobado}>Producto Verificado</Text>
+                        {/* BOTÓN OVERLAY PARA LANZAR REALIDAD AUMENTADA */}
+                        {Boolean(animalRA) && (
+                            <TouchableOpacity
+                                style={[styles.botonOverlayRA, abriendoRA && styles.botonDeshabilitado]}
+                                onPress={abrirRealidadAumentada}
+                                disabled={abriendoRA}
+                                activeOpacity={0.85}
+                            >
+                                <Ionicons name="cube-outline" size={18} color={COLORS.blancoPuro} style={{ marginRight: 6 }} />
+                                <Text style={styles.textoBotonOverlayRA}>
+                                    {abriendoRA ? 'Abriendo RA...' : 'Ver en RA 3D'}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
 
-                    {/* SECCIÓN 1: PRODUCTO */}
-                    <View style={styles.tarjetaDatos}>
-                        <View style={styles.encabezadoTarjeta}>
-                            <Ionicons name="cube" size={18} color={COLORS.azulMarino} />
-                            <Text style={styles.tituloTarjetaDatos}>Datos del Producto</Text>
+                    {/* TARJETAS MODULARES DE DATOS */}
+                    <View style={styles.tarjetaFigma}>
+                        <View style={styles.bannerTarjetaFigma}>
+                            <Text style={styles.tituloBannerFigma}>Datos del producto</Text>
                         </View>
-                        <View style={styles.cuerpoTarjeta}>
-                            <FilaTabla label="Código Rastreo" valor={codigo} destacar />
-                            <FilaTabla label="Lote Interno" valor={datosLote.lote_id} />
-                            <FilaTabla label="Producto Comercial" valor={datosLote.producto} />
-                            <FilaTabla label="Establecimiento" valor={datosLote.detalles_trazabilidad?.establecimiento} />
-                            <FilaTabla label="Fecha de Producción" valor={formatearParaUI(datosLote.fecha_empaque)} />
-                        </View>
-                    </View>
-
-                    {consultaDesdeQR && recomendacionCorte && (
-                        <View style={styles.tarjetaDatos}>
-                            <View style={styles.encabezadoTarjeta}>
-                                <Ionicons name="restaurant" size={18} color="#b45309" />
-                                <Text style={styles.tituloTarjetaDatos}>Recomendaciones del corte</Text>
-                            </View>
-                            <View style={styles.cuerpoTarjeta}>
-                                <FilaTabla label="Consejo" valor={recomendacionCorte} />
-                            </View>
-                        </View>
-                    )}
-
-                    {/* SECCIÓN 2: ORIGEN Y PRODUCTOR */}
-                    <View style={styles.tarjetaDatos}>
-                        <View style={styles.encabezadoTarjeta}>
-                            <Ionicons name="leaf" size={18} color="#16a34a" />
-                            <Text style={styles.tituloTarjetaDatos}>Origen y Productor</Text>
-                        </View>
-                        <View style={styles.cuerpoTarjeta}>
-                            <FilaTabla label="Productor" valor={datosLote.detalles_trazabilidad?.productor} />
-                            <FilaTabla label="UPP Origen" valor={datosLote.detalles_trazabilidad?.upp_rancho} />
-                            <FilaTabla label="Procedencia" valor={datosLote.detalles_trazabilidad?.procedencia} />
+                        <View style={styles.cuerpoTarjetaFigma}>
+                            <FilaTabla label="Tipo de corte" valor={datosLote.producto || datosLote.tipo_corte || 'Pecho'} />
+                            <FilaTabla label="Lote" valor={datosLote.codigo_trazabilidad || datosLote.codigo_lote || datosLote.lote_id} />
+                            <FilaTabla label="Fecha de producción" valor={fechaProduccionFormateada} />
+                            <FilaTabla label="Consumo preferente" valor={fechaConsumoFormateada} />
                         </View>
                     </View>
 
-                    {/* SECCIÓN 3: ANIMAL Y LOGÍSTICA */}
-                    <View style={styles.tarjetaDatos}>
-                        <View style={styles.encabezadoTarjeta}>
-                            <Ionicons name="paw" size={18} color="#ca8a04" />
-                            <Text style={styles.tituloTarjetaDatos}>Trazabilidad de Res/Cerdo</Text>
+                    <View style={styles.tarjetaFigma}>
+                        <View style={styles.bannerTarjetaFigma}>
+                            <Text style={styles.tituloBannerFigma}>Origen y sanidad</Text>
                         </View>
-                        <View style={styles.cuerpoTarjeta}>
-                            <FilaTabla label="Especie" valor={datosLote.detalles_trazabilidad?.especie} />
-                            <FilaTabla label="Arete (SINIIGA)" valor={datosLote.detalles_trazabilidad?.arete_siniga} destacar />
-                            <FilaTabla label="Guía Tránsito" valor={datosLote.detalles_trazabilidad?.guia_reemo} />
-                            <FilaTabla label="Rastro Sacrificio" valor={datosLote.detalles_trazabilidad?.sacrificio_rastro} />
+                        <View style={styles.cuerpoTarjetaFigma}>
+                            <FilaTabla label="Especie" valor={datosLote.detalles_trazabilidad?.especie || (animalRA === 'cerdo' ? 'PORCINO' : 'BOVINO')} />
+                            <FilaTabla label="Nombre del productor" valor={datosLote.detalles_trazabilidad?.productor || datosLote.detalles_trazabilidad?.propietario} />
+                            <FilaTabla label="Procedencia" valor={datosLote.detalles_trazabilidad?.procedencia || datosLote.detalles_trazabilidad?.upp_rancho} />
+                            <FilaTabla label="Rastro:" valor={datosLote.detalles_trazabilidad?.sacrificio_rastro || 'RASTRO MUNICIPAL DE HUEJUTLA REYES'} />
+                            <FilaTabla label="Arete" valor={enmascararArete(datosLote.detalles_trazabilidad?.arete_siniga || datosLote.arete_siniga || datosLote.num_arete)} />
                         </View>
                     </View>
 
-                    {/* BOTÓN PARA LIMPIAR Y VOLVER A BUSCAR */}
+                    <View style={styles.tarjetaFigma}>
+                        <View style={styles.bannerTarjetaFigma}>
+                            <Text style={styles.tituloBannerFigma}>Recomendaciones</Text>
+                        </View>
+                        <View style={styles.cuerpoTarjetaFigma}>
+                            {tipsCuidadoArray.map((tip, idx) => (
+                                <Text key={idx} style={styles.bulletRecomendacion}>
+                                    • "{tip}"
+                                </Text>
+                            ))}
+                        </View>
+                    </View>
+
                     <TouchableOpacity
-                        style={[styles.primaryButton, {marginTop: 15}]}
+                        style={[styles.primaryButton, { marginTop: 18 }]}
                         onPress={() => {
                             if (consultaDesdeQR) {
                                 navigation.goBack();
@@ -427,7 +544,7 @@ export default function IngresoManual({ route, navigation }) {
                             setCodigo('');
                         }}
                     >
-                        <Text style={styles.buttonText}>{consultaDesdeQR ? 'Escanear otro código' : 'Realizar otra búsqueda'}</Text>
+                        <Text style={styles.buttonText}>{consultaDesdeQR ? 'Volver a escanear' : 'Realizar otra búsqueda'}</Text>
                     </TouchableOpacity>
                 </View>
             )}
@@ -437,13 +554,15 @@ export default function IngresoManual({ route, navigation }) {
 
 const styles = StyleSheet.create({
     scrollContainer: { flexGrow: 1, backgroundColor: COLORS.blancoPuro, paddingBottom: 40 },
-    encabezadoNavegacion: { minHeight: 58, paddingHorizontal: 12, paddingTop: 8, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', backgroundColor: COLORS.blancoPuro },
-    botonVolver: { alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 7 },
+    encabezadoNavegacion: { minHeight: 54, paddingHorizontal: 14, paddingTop: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', backgroundColor: COLORS.blancoPuro },
+    botonVolver: { alignSelf: 'center', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7 },
     textoVolver: { color: COLORS.azulMarino, fontSize: 14, fontWeight: FONTS.bold },
+    tituloResultado: { fontSize: 16, fontWeight: FONTS.bold, color: '#0f172a' },
     
     // Estilos Originales de Ingreso Manual
-    containerOriginal: { alignItems: 'center', paddingTop: 50, paddingHorizontal: 30 },
-    title: { fontSize: SIZES.tituloSeccion, fontWeight: FONTS.bold, color: '#000', textAlign: 'center', marginBottom: 20 },
+    containerOriginal: { alignItems: 'center', paddingTop: 40, paddingHorizontal: 30 },
+    title: { fontSize: SIZES.tituloSeccion, fontWeight: FONTS.bold, color: '#000', textAlign: 'center', marginBottom: 6 },
+    subtituloAyuda: { fontSize: 13, color: '#64748b', textAlign: 'center', marginBottom: 18, lineHeight: 18 },
     input: { width: '100%', height: 50, borderColor: '#999', borderWidth: 1, borderRadius: SIZES.radioInput, paddingHorizontal: 15, fontSize: SIZES.textoBase, marginBottom: 20, color: '#000', backgroundColor: COLORS.blancoPuro },
     primaryButton: { backgroundColor: COLORS.rojoIntenso, paddingVertical: 14, borderRadius: SIZES.radioBoton, width: '100%', alignItems: 'center', marginBottom: 20 },
     buttonText: { color: COLORS.blancoPuro, fontWeight: FONTS.bold, fontSize: SIZES.textoBase },
@@ -456,35 +575,36 @@ const styles = StyleSheet.create({
     tituloError: { fontSize: 22, fontWeight: 'bold', color: '#991b1b', marginTop: 15 },
     textoError: { fontSize: 15, color: '#b91c1c', textAlign: 'center', marginTop: 8, lineHeight: 22 },
 
-    // Estilos de la Ficha Técnica (Resultados)
-    contenedorResultados: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingTop: 20, paddingHorizontal: 16 },
-    tarjetaAprobada: { flexDirection: 'row', backgroundColor: '#ecfdf5', borderWidth: 1, borderColor: '#6ee7b7', padding: 15, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-    textoAprobado: { fontSize: 16, fontWeight: '800', color: '#047857' },
-
-    tarjetaDatos: { backgroundColor: COLORS.blancoPuro, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 15, elevation: 1 },
-    encabezadoTarjeta: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', paddingHorizontal: 15, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', borderTopLeftRadius: 12, borderTopRightRadius: 12 },
-    tituloTarjetaDatos: { fontSize: 15, fontWeight: 'bold', color: '#0f172a', marginLeft: 8 },
-    cuerpoTarjeta: { padding: 15 },
+    // Estilos de la Ficha Técnica (Diseño Figma)
+    contenedorResultados: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingTop: 14, paddingHorizontal: 16 },
     
-    filaTabla: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-    labelTabla: { fontSize: 13, color: '#64748b', flex: 1, paddingRight: 10 },
-    valorTabla: { fontSize: 13, color: '#1e293b', fontWeight: '600', flex: 1.2, textAlign: 'right' },
-    valorDestacado: { color: COLORS.azulMarino, fontWeight: '900', fontSize: 14 },
+    // Badge Superior de Carnicería con Checkmark
+    badgeCarniceriaFigma: { flexDirection: 'row', backgroundColor: '#dbeafe', borderRadius: 10, paddingVertical: 11, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 14, borderWidth: 1, borderColor: '#bfdbfe' },
+    textoBadgeCarniceria: { fontSize: 15, fontWeight: FONTS.bold, color: COLORS.azulMarino },
 
-    tarjetaMultimedia: { backgroundColor: COLORS.blancoPuro, borderRadius: SIZES.radioTarjeta, borderWidth: 1, borderColor: '#dbe3ec', marginBottom: 15, overflow: 'hidden', elevation: 1 },
-    filaMultimedia: { flexDirection: 'row', alignItems: 'stretch', gap: 10, padding: 12 },
-    marcoImagenAnimal: { flexShrink: 0, borderRadius: SIZES.radioBoton, overflow: 'hidden', backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#dbe3ec' },
-    imagenAnimal: { width: '100%', height: '100%' },
-    imagenNoDisponible: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-    tituloSinImagen: { color: '#475569', fontSize: 12, fontWeight: FONTS.bold, marginTop: 5, textAlign: 'center' },
-    textoSinImagen: { color: '#94a3b8', fontSize: 9, lineHeight: 13, textAlign: 'center', marginTop: 2 },
-    botonReintentarImagen: { minHeight: 28, marginTop: 5, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center', borderRadius: 6, backgroundColor: '#e2e8f0' },
-    textoReintentarImagen: { color: '#475569', fontSize: 10, fontWeight: FONTS.bold },
-    botonRA: { flex: 1, minWidth: 0, paddingVertical: 10, paddingHorizontal: 10, borderRadius: SIZES.radioBoton, backgroundColor: COLORS.azulCeruleo, alignItems: 'flex-start', justifyContent: 'center', elevation: 2 },
+    // Marco de Fotografía del Animal
+    marcoFotoAnimalFigma: { width: '100%', height: 210, borderRadius: 16, overflow: 'hidden', backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#dbe3ec', marginBottom: 14, position: 'relative' },
+    fotoAnimalFigma: { width: '100%', height: '100%' },
+    marcoSinFotoFigma: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc', paddingHorizontal: 16 },
+    tituloSinFotoFigma: { color: '#475569', fontSize: 13, fontWeight: FONTS.bold, marginTop: 8, textAlign: 'center' },
+    textoSinFotoFigma: { color: '#94a3b8', fontSize: 11, textAlign: 'center', marginTop: 3 },
+    botonReintentarFotoFigma: { marginTop: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: '#e2e8f0' },
+    textoReintentarFotoFigma: { color: '#475569', fontSize: 11, fontWeight: FONTS.bold },
+    botonOverlayRA: { position: 'absolute', bottom: 12, right: 12, backgroundColor: COLORS.azulMarino, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 9, borderRadius: SIZES.radioBoton, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84 },
+    textoBotonOverlayRA: { color: COLORS.blancoPuro, fontSize: 13, fontWeight: FONTS.bold },
     botonDeshabilitado: { opacity: 0.68 },
-    iconoRA: { width: 40, height: 40, borderRadius: SIZES.radioBoton, backgroundColor: 'rgba(255, 255, 255, 0.16)', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-    tituloBotonRA: { color: COLORS.blancoPuro, fontSize: 14, fontWeight: FONTS.bold },
-    subtituloBotonRA: { color: '#e0f2fe', fontSize: 10, lineHeight: 14, marginTop: 3 },
-    accionRA: { minHeight: 30, marginTop: 7, flexDirection: 'row', alignItems: 'center', gap: 5 },
-    textoAccionRA: { color: COLORS.blancoPuro, fontSize: 11, fontWeight: FONTS.bold }
+
+    // Tarjetas modulares de Figma
+    tarjetaFigma: { backgroundColor: COLORS.blancoPuro, borderRadius: 14, borderWidth: 1, borderColor: '#dbe3ec', marginBottom: 14, overflow: 'hidden', elevation: 1 },
+    bannerTarjetaFigma: { backgroundColor: '#dbeafe', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#bfdbfe' },
+    tituloBannerFigma: { fontSize: 14, fontWeight: FONTS.bold, color: COLORS.azulMarino },
+    cuerpoTarjetaFigma: { paddingHorizontal: 16, paddingVertical: 6 },
+    
+    // Filas de datos
+    filaTabla: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+    labelTabla: { fontSize: 13.5, color: '#334155', flex: 1, paddingRight: 10 },
+    valorTabla: { fontSize: 13.5, color: '#0f172a', fontWeight: FONTS.bold, flex: 1.3, textAlign: 'right' },
+
+    // Bullets de recomendaciones
+    bulletRecomendacion: { fontSize: 13.5, color: '#1e293b', fontStyle: 'italic', paddingVertical: 6, lineHeight: 20 }
 });

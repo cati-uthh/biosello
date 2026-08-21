@@ -147,6 +147,7 @@ export default function MisLotes({ onVolver, idNegocio, nombreNegocio }) {
     const [editando, setEditando] = useState(false);
     const [formEdicion, setFormEdicion] = useState(() => crearFormularioEdicion(null));
     const [guardando, setGuardando] = useState(false);
+    const [actualizandoEstado, setActualizandoEstado] = useState(false);
     const [eliminandoId, setEliminandoId] = useState(null);
     const [calendarioActivo, setCalendarioActivo] = useState(null);
 
@@ -239,25 +240,104 @@ export default function MisLotes({ onVolver, idNegocio, nombreNegocio }) {
         setCalendarioActivo(null);
     };
 
-    // --- LÓGICA DE ALERTA PARA CAMBIO DE ESTADO RÁPIDO ---
+    // --- SECUENCIA DE 3 ADVERTENCIAS (CADUCAR / ELIMINAR) ---
+    const [pasoSeguridad, setPasoSeguridad] = useState(0); // 0: cerrado, 1: advertencia datos, 2: contraseña, 3: confirmación final
+    const [tipoSeguridad, setTipoSeguridad] = useState(null); // 'caducar' | 'guardar_caducado' | 'eliminar'
+    const [loteSeguridad, setLoteSeguridad] = useState(null);
+    const [passwordConfirm, setPasswordConfirm] = useState('');
+    const [errorPassword, setErrorPassword] = useState('');
+    const [procesandoSeguridad, setProcesandoSeguridad] = useState(false);
+
+    const iniciarBorradoLote = (lote) => {
+        setTipoSeguridad('eliminar');
+        setLoteSeguridad(lote);
+        setPasswordConfirm('');
+        setErrorPassword('');
+        setPasoSeguridad(1);
+    };
+
+    const iniciarCaducadoLote = (lote, esEdicion = false) => {
+        setTipoSeguridad(esEdicion ? 'guardar_caducado' : 'caducar');
+        setLoteSeguridad(lote);
+        setPasswordConfirm('');
+        setErrorPassword('');
+        setPasoSeguridad(1);
+    };
+
+    const cancelarSeguridad = () => {
+        setPasoSeguridad(0);
+        setLoteSeguridad(null);
+        setTipoSeguridad(null);
+        setPasswordConfirm('');
+        setErrorPassword('');
+        setProcesandoSeguridad(false);
+    };
+
+    const validarPasswordPaso2 = async () => {
+        if (!passwordConfirm.trim()) {
+            setErrorPassword('Por favor ingresa tu contraseña.');
+            return;
+        }
+
+        setProcesandoSeguridad(true);
+        setErrorPassword('');
+
+        try {
+            const identificadorUsuario = usuario?.email || usuario?.correo || usuario?.identificador || usuario?.nombre;
+            const response = await fetch(`${API_BASE_URL}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: identificadorUsuario,
+                    identificador: identificadorUsuario,
+                    contrasena: passwordConfirm
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || result.success === false) {
+                setErrorPassword('La contraseña ingresada no coincide con tu cuenta.');
+                setProcesandoSeguridad(false);
+                return;
+            }
+
+            setProcesandoSeguridad(false);
+            setPasoSeguridad(3);
+        } catch (error) {
+            setErrorPassword('Error al conectar con el servidor para verificar contraseña.');
+            setProcesandoSeguridad(false);
+        }
+    };
+
+    const ejecutarAccionFinalPaso3 = async () => {
+        const tipo = tipoSeguridad;
+        const lote = loteSeguridad;
+
+        cancelarSeguridad();
+
+        if (tipo === 'caducar') {
+            await ejecutarCambioEstado(lote, 'caducado');
+        } else if (tipo === 'guardar_caducado') {
+            await ejecutarGuardarEdicion();
+        } else if (tipo === 'eliminar') {
+            await ejecutarEliminarLote(lote);
+        }
+    };
+
+    // --- LÓGICA DE CAMBIO DE ESTADO RÁPIDO ---
     const confirmarCambioEstado = (lote, estado) => {
         if (lote.estado === estado) return;
 
         if (estado === 'caducado') {
-            Alert.alert(
-                'Acción Irreversible',
-                '¿Estás seguro de marcar este lote como CADUCADO?\n\nPor protocolo de seguridad sanitaria, esta acción no se puede deshacer y el lote quedará bloqueado permanentemente.',
-                [
-                    { text: 'Cancelar', style: 'cancel' },
-                    { text: 'Sí, marcar como caducado', style: 'destructive', onPress: () => ejecutarCambioEstado(lote, estado) }
-                ]
-            );
+            iniciarCaducadoLote(lote, false);
         } else {
             ejecutarCambioEstado(lote, estado);
         }
     };
 
     const ejecutarCambioEstado = async (lote, estado) => {
+        setActualizandoEstado(true);
         setGuardando(true);
         try {
             const response = await fetch(`${API_BASE_URL}/lotes`, {
@@ -283,23 +363,17 @@ export default function MisLotes({ onVolver, idNegocio, nombreNegocio }) {
         } catch (error) {
             Alert.alert('Error de conexión', 'No se pudo conectar con el servidor.');
         } finally {
+            setActualizandoEstado(false);
             setGuardando(false);
         }
     };
 
-    // --- LÓGICA DE ALERTA PARA GUARDAR EDICIÓN COMPLETA ---
+    // --- LÓGICA PARA GUARDAR EDICIÓN COMPLETA ---
     const confirmarGuardarEdicion = () => {
         if (!loteSeleccionado) return;
 
         if (formEdicion.lote.estado === 'caducado' && loteSeleccionado.estado !== 'caducado') {
-            Alert.alert(
-                'Acción Irreversible',
-                'Estás a punto de marcar este lote como CADUCADO.\n\nPor protocolo de seguridad sanitaria, el lote quedará bloqueado permanentemente tras guardar los cambios. ¿Deseas continuar?',
-                [
-                    { text: 'Cancelar', style: 'cancel' },
-                    { text: 'Sí, caducar y guardar', style: 'destructive', onPress: ejecutarGuardarEdicion }
-                ]
-            );
+            iniciarCaducadoLote(loteSeleccionado, true);
         } else {
             ejecutarGuardarEdicion();
         }
@@ -343,13 +417,10 @@ export default function MisLotes({ onVolver, idNegocio, nombreNegocio }) {
     };
 
     const confirmarEliminar = (lote) => {
-        Alert.alert('Eliminar lote', `Se eliminará el lote ${lote.codigo_lote}. Esta acción no se puede deshacer.`, [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Eliminar', style: 'destructive', onPress: () => eliminarLote(lote) }
-        ]);
+        iniciarBorradoLote(lote);
     };
 
-    const eliminarLote = async (lote) => {
+    const ejecutarEliminarLote = async (lote) => {
         setEliminandoId(lote.id_lote);
         try {
             const params = new URLSearchParams({ id_lote: String(lote.id_lote) });
@@ -362,7 +433,21 @@ export default function MisLotes({ onVolver, idNegocio, nombreNegocio }) {
             const result = await response.json();
 
             if (!response.ok || result.success === false) {
-                Alert.alert('Error', result.error || 'No se pudo eliminar el lote.');
+                const errorTexto = String(result.error || result.message || '');
+                if (
+                    errorTexto.includes('foreign key') ||
+                    errorTexto.includes('CONSTRAINT') ||
+                    errorTexto.includes('salida_lote') ||
+                    errorTexto.includes('ER_ROW_IS_REFERENCED_2') ||
+                    errorTexto.includes('1451')
+                ) {
+                    Alert.alert(
+                        'No se puede eliminar el lote',
+                        'Este lote ya cuenta con registros históricos asociados (salidas, ventas o trazabilidad) en el sistema. Por normas de auditoría y trazabilidad sanitaria, no se puede borrar de la base de datos. Puedes marcarlo como Caducado o Vendido.'
+                    );
+                } else {
+                    Alert.alert('Error al eliminar', result.error || 'No se pudo eliminar el lote.');
+                }
                 return;
             }
 
@@ -554,7 +639,15 @@ export default function MisLotes({ onVolver, idNegocio, nombreNegocio }) {
                         </View>
 
                         <View style={styles.detalleCard}>
-                            <Text style={styles.detalleTitulo}>Gestión de Estado</Text>
+                            <View style={styles.detalleHeaderGestion}>
+                                <Text style={styles.detalleTituloGestion}>Gestión de Estado</Text>
+                                {actualizandoEstado && (
+                                    <View style={styles.badgeActualizandoEstado}>
+                                        <ActivityIndicator size="small" color={COLORS.azulMarino} />
+                                        <Text style={styles.textoActualizandoEstado}>Actualizando...</Text>
+                                    </View>
+                                )}
+                            </View>
                             
                             {loteSeleccionado.estado === 'caducado' ? (
                                 <View style={styles.cajaBloqueoSeguridad}>
@@ -568,8 +661,23 @@ export default function MisLotes({ onVolver, idNegocio, nombreNegocio }) {
                                     {ESTADOS_LOTE_UI.map((estado) => {
                                         const activo = loteSeleccionado.estado === estado.value;
                                         return (
-                                            <TouchableOpacity key={estado.value} style={[styles.chipOpcion, activo && styles.chipOpcionActivo]} disabled={guardando} onPress={() => confirmarCambioEstado(loteSeleccionado, estado.value)}>
-                                                <Text style={[styles.chipOpcionTexto, activo && styles.chipOpcionTextoActivo]}>{estado.label}</Text>
+                                            <TouchableOpacity 
+                                                key={estado.value} 
+                                                style={[
+                                                    styles.chipOpcion, 
+                                                    activo && styles.chipOpcionActivo,
+                                                    actualizandoEstado && styles.chipOpcionDeshabilitado
+                                                ]} 
+                                                disabled={actualizandoEstado || guardando} 
+                                                onPress={() => confirmarCambioEstado(loteSeleccionado, estado.value)}
+                                            >
+                                                <Text style={[
+                                                    styles.chipOpcionTexto, 
+                                                    activo && styles.chipOpcionTextoActivo,
+                                                    actualizandoEstado && !activo && styles.chipOpcionTextoDeshabilitado
+                                                ]}>
+                                                    {estado.label}
+                                                </Text>
                                             </TouchableOpacity>
                                         );
                                     })}
@@ -583,19 +691,27 @@ export default function MisLotes({ onVolver, idNegocio, nombreNegocio }) {
                             </Text>
                             {recomendacionesLote(loteSeleccionado).map((texto, index) => (
                                 <Text key={String(index)} style={[styles.recomendacion, loteSeleccionado.estado === 'caducado' && { color: '#7f1d1d' }]}>
-                                    • {texto}
+                                • {texto}
                                 </Text>
                             ))}
                         </View>
 
                         {loteSeleccionado.estado !== 'caducado' && (
-                            <TouchableOpacity style={styles.botonPrimario} onPress={() => abrirEdicion(loteSeleccionado)}>
+                            <TouchableOpacity 
+                                style={[styles.botonPrimario, actualizandoEstado && styles.botonDeshabilitado]} 
+                                disabled={actualizandoEstado}
+                                onPress={() => abrirEdicion(loteSeleccionado)}
+                            >
                                 <Ionicons name="create" size={18} color={COLORS.blancoPuro} />
                                 <Text style={styles.textoBotonPrimario}>Editar lote</Text>
                             </TouchableOpacity>
                         )}
 
-                        <TouchableOpacity style={styles.botonEliminar} onPress={() => confirmarEliminar(loteSeleccionado)}>
+                        <TouchableOpacity 
+                            style={[styles.botonEliminar, actualizandoEstado && styles.botonDeshabilitado]} 
+                            disabled={actualizandoEstado}
+                            onPress={() => confirmarEliminar(loteSeleccionado)}
+                        >
                             <Ionicons name="trash" size={18} color={COLORS.rojoIntenso} />
                             <Text style={styles.textoBotonEliminar}>Eliminar lote</Text>
                         </TouchableOpacity>
@@ -664,6 +780,118 @@ export default function MisLotes({ onVolver, idNegocio, nombreNegocio }) {
                 onSelect={seleccionarFecha}
                 onClose={() => setCalendarioActivo(null)}
             />
+
+            {/* MODAL SECUENCIA DE 3 ADVERTENCIAS DE ELIMINACIÓN / CADUCIDAD */}
+            <Modal visible={pasoSeguridad > 0} transparent animationType="fade">
+                <View style={styles.modalFondo}>
+                    <View style={styles.modalContenidoAlerta}>
+                        <View style={styles.iconoAlertaHeader}>
+                            <Ionicons name="warning" size={32} color={COLORS.rojoIntenso} />
+                        </View>
+
+                        {/* PASO 1: ADVERTENCIA INICIAL */}
+                        {pasoSeguridad === 1 && (
+                            <View style={{ alignItems: 'center', width: '100%' }}>
+                                <Text style={styles.tituloAlerta}>
+                                    {tipoSeguridad === 'eliminar'
+                                        ? 'Advertencia: Pérdida Irreversible'
+                                        : 'Advertencia: Bloqueo Sanitario'}
+                                </Text>
+                                <Text style={styles.textoAlertaConciso}>
+                                    {tipoSeguridad === 'eliminar'
+                                        ? `Al eliminar el lote "${loteSeguridad?.codigo_lote}", todos los registros, trazabilidad e historiales asociados se eliminarán permanentemente de la base de datos.`
+                                        : `Al marcar el lote "${loteSeguridad?.codigo_lote}" como CADUCADO, por normativas de seguridad sanitaria de alimentos quedará bloqueado permanentemente y no podrá volver a activarse.`}
+                                </Text>
+                                <TouchableOpacity
+                                    style={styles.botonContinuarAdvertencia}
+                                    onPress={() => {
+                                        setPasswordConfirm('');
+                                        setErrorPassword('');
+                                        setPasoSeguridad(2);
+                                    }}
+                                >
+                                    <Text style={styles.textoBotonAdvertencia}>Entendido</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.botonCancelarModal} onPress={cancelarSeguridad}>
+                                    <Text style={styles.textoCancelarModal}>Cancelar</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        {/* PASO 2: AUTENTICACIÓN POR CONTRASEÑA */}
+                        {pasoSeguridad === 2 && (
+                            <View style={{ width: '100%' }}>
+                                <Text style={styles.tituloAlerta}>Advertencia: Confirmación de Identidad</Text>
+                                <Text style={styles.subtextoAlerta}>
+                                    Ingresa tu contraseña de cuenta para autorizar esta acción sobre el lote.
+                                </Text>
+                                <TextInput
+                                    style={styles.inputPasswordConfirm}
+                                    placeholder="Tu contraseña actual"
+                                    placeholderTextColor="#888"
+                                    secureTextEntry
+                                    value={passwordConfirm}
+                                    onChangeText={(t) => {
+                                        setPasswordConfirm(t);
+                                        if (errorPassword) setErrorPassword('');
+                                    }}
+                                />
+                                {errorPassword ? (
+                                    <Text style={styles.textoErrorPassword}>{errorPassword}</Text>
+                                ) : null}
+                                <TouchableOpacity
+                                    style={[styles.botonContinuarAdvertencia, (!passwordConfirm.trim() || procesandoSeguridad) && styles.botonDeshabilitado]}
+                                    onPress={validarPasswordPaso2}
+                                    disabled={!passwordConfirm.trim() || procesandoSeguridad}
+                                >
+                                    {procesandoSeguridad ? (
+                                        <ActivityIndicator color={COLORS.blancoPuro} />
+                                    ) : (
+                                        <Text style={styles.textoBotonAdvertencia}>Validar contraseña</Text>
+                                    )}
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.botonCancelarModal} onPress={cancelarSeguridad} disabled={procesandoSeguridad}>
+                                    <Text style={styles.textoCancelarModal}>Cancelar</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        {/* PASO 3: CONFIRMACIÓN FINAL */}
+                        {pasoSeguridad === 3 && (
+                            <View style={{ alignItems: 'center', width: '100%' }}>
+                                <Text style={styles.tituloAlerta}>
+                                    {tipoSeguridad === 'eliminar'
+                                        ? 'Advertencia: ¿Borrar Lote?'
+                                        : 'Advertencia: ¿Marcar Lote como Caducado?'}
+                                </Text>
+                                <Text style={styles.textoAlertaConciso}>
+                                    {tipoSeguridad === 'eliminar'
+                                        ? `Esta es la confirmación final. ¿Estás completamente seguro de borrar definitivamente el lote "${loteSeguridad?.codigo_lote}"?`
+                                        : `Esta es la confirmación final. ¿Estás completamente seguro de marcar como caducado el lote "${loteSeguridad?.codigo_lote}"?`}
+                                </Text>
+                                <TouchableOpacity
+                                    style={[styles.botonBorrarDefinitivo, (guardando || eliminandoId) && styles.botonDeshabilitado]}
+                                    onPress={ejecutarAccionFinalPaso3}
+                                    disabled={guardando || eliminandoId}
+                                >
+                                    {guardando || eliminandoId ? (
+                                        <ActivityIndicator color={COLORS.blancoPuro} />
+                                    ) : (
+                                        <Text style={styles.textoBotonBorrarDefinitivo}>
+                                            {tipoSeguridad === 'eliminar'
+                                                ? 'Sí, borrar lote definitivamente'
+                                                : 'Sí, marcar como caducado definitivamente'}
+                                        </Text>
+                                    )}
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.botonCancelarModal} onPress={cancelarSeguridad} disabled={guardando || eliminandoId}>
+                                    <Text style={styles.textoCancelarModal}>Cancelar y conservar estado</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </View>
+                </View>
+            </Modal>
         </ScrollView>
     );
 }
@@ -729,8 +957,16 @@ const styles = StyleSheet.create({
     opcionesFila: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     chipOpcion: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: COLORS.blancoPuro },
     chipOpcionActivo: { borderColor: COLORS.azulMarino, backgroundColor: COLORS.azulCeruleo },
+    chipOpcionDeshabilitado: { opacity: 0.55, borderColor: '#e2e8f0' },
     chipOpcionTexto: { color: '#475569', fontSize: 13, fontWeight: FONTS.bold },
     chipOpcionTextoActivo: { color: COLORS.blancoPuro },
+    chipOpcionTextoDeshabilitado: { color: '#94a3b8' },
+    
+    detalleHeaderGestion: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+    detalleTituloGestion: { color: '#0f172a', fontSize: 16, fontWeight: FONTS.bold },
+    badgeActualizandoEstado: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e0f2fe', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, gap: 6 },
+    textoActualizandoEstado: { fontSize: 12, fontWeight: '600', color: COLORS.azulMarino },
+
     especieBloqueada: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: SIZES.radioBoton, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
     especieTexto: { color: '#334155', fontSize: 15, fontWeight: FONTS.bold },
     toggleFila: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, marginTop: 5 },
@@ -738,5 +974,105 @@ const styles = StyleSheet.create({
     checkboxActivo: { backgroundColor: COLORS.azulMarino, borderColor: COLORS.azulMarino },
     toggleTexto: { color: '#334155', fontSize: 15, fontWeight: '600' },
     cajaBloqueoSeguridad: { flexDirection: 'row', backgroundColor: '#fef2f2', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#fca5a5' },
-    textoBloqueoSeguridad: { flex: 1, color: '#991b1b', fontSize: 13, fontWeight: 'bold', lineHeight: 18 }
+    textoBloqueoSeguridad: { flex: 1, color: '#991b1b', fontSize: 13, fontWeight: 'bold', lineHeight: 18 },
+
+    // ESTILOS ADVERTENCIAS DE 3 PASOS (SUCURSALES / LOTES)
+    modalFondo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', paddingHorizontal: 20 },
+    modalContenidoAlerta: { 
+        backgroundColor: COLORS.blancoPuro, 
+        borderRadius: SIZES.radioTarjeta, 
+        padding: 24, 
+        alignItems: 'center', 
+        width: '100%' 
+    },
+    iconoAlertaHeader: { 
+        width: 56, 
+        height: 56, 
+        borderRadius: 28, 
+        backgroundColor: '#fef2f2', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        marginBottom: 12 
+    },
+    tituloAlerta: { 
+        fontSize: 17, 
+        fontWeight: FONTS.bold, 
+        color: '#0f172a', 
+        textAlign: 'center', 
+        marginBottom: 10 
+    },
+    textoAlertaConciso: { 
+        fontSize: 13, 
+        color: '#475569', 
+        textAlign: 'center', 
+        lineHeight: 20, 
+        marginBottom: 20 
+    },
+    subtextoAlerta: { 
+        fontSize: 13, 
+        color: '#64748b', 
+        textAlign: 'center', 
+        marginBottom: 12 
+    },
+    inputPasswordConfirm: { 
+        width: '100%', 
+        backgroundColor: '#f8fafc', 
+        borderWidth: 1, 
+        borderColor: '#cbd5e1', 
+        borderRadius: SIZES.radioBoton, 
+        padding: 12, 
+        color: '#0f172a', 
+        fontSize: 14, 
+        marginBottom: 15 
+    },
+    textoErrorPassword: {
+        color: COLORS.rojoIntenso,
+        fontSize: 12,
+        fontWeight: FONTS.bold,
+        textAlign: 'center',
+        marginBottom: 10
+    },
+    botonContinuarAdvertencia: { 
+        width: '100%', 
+        backgroundColor: COLORS.azulMarino, 
+        paddingVertical: 14, 
+        paddingHorizontal: 20, 
+        borderRadius: SIZES.radioBoton, 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        marginBottom: 10 
+    },
+    textoBotonAdvertencia: { 
+        color: COLORS.blancoPuro, 
+        fontWeight: FONTS.bold, 
+        fontSize: 14, 
+        textAlign: 'center' 
+    },
+    botonBorrarDefinitivo: { 
+        width: '100%', 
+        backgroundColor: COLORS.rojoIntenso, 
+        paddingVertical: 14, 
+        paddingHorizontal: 20, 
+        borderRadius: SIZES.radioBoton, 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        marginBottom: 10 
+    },
+    textoBotonBorrarDefinitivo: { 
+        color: COLORS.blancoPuro, 
+        fontWeight: FONTS.bold, 
+        fontSize: 14, 
+        textAlign: 'center' 
+    },
+    botonCancelarModal: { 
+        paddingVertical: 10, 
+        width: '100%', 
+        alignItems: 'center' 
+    },
+    textoCancelarModal: { 
+        color: '#64748b', 
+        fontWeight: '600', 
+        fontSize: 13, 
+        textAlign: 'center' 
+    }
 });

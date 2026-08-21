@@ -77,8 +77,8 @@ const identificadorPlano = (codigoLote, raw) => ({
     idNegocio: '',
     codigoLote: limpiar(codigoLote),
     idCorte: '',
-    incluirTipCuidado: false,
-    incluirRecomendacion: false,
+    incluirTipCuidado: true,
+    incluirRecomendacion: true,
     raw
 });
 

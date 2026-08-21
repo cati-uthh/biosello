@@ -122,11 +122,10 @@ export default function RealidadAumentadaScreen({ navigation, route }) {
     }, [estadoModulo]);
 
     const alActualizarSeguimiento = useCallback((estado) => {
-        setSeguimiento(
-            estado === ViroTrackingStateConstants.TRACKING_NORMAL
-                ? 'normal'
-                : 'inicializando'
-        );
+        const nuevoEstado = estado === ViroTrackingStateConstants.TRACKING_NORMAL
+            ? 'normal'
+            : 'inicializando';
+        setSeguimiento((actual) => (actual === nuevoEstado ? actual : nuevoEstado));
     }, []);
 
     const alColocarAnimal = useCallback(() => {

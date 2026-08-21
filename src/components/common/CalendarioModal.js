@@ -20,17 +20,38 @@ const DIAS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
 const pad = (value) => String(value).padStart(2, '0');
 const toDateKey = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
+const normalizarAFechaISO = (valor) => {
+  if (!valor) return null;
+  const texto = String(valor).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) return texto;
+  if (texto.includes('/')) {
+    const partes = texto.split('/');
+    if (partes.length === 3) {
+      const d = partes[0].padStart(2, '0');
+      const m = partes[1].padStart(2, '0');
+      let y = partes[2];
+      if (y.length === 2) y = `20${y}`;
+      return `${y}-${m}-${d}`;
+    }
+  }
+  return null;
+};
+
 const fechaDesdeValor = (valor) => {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(String(valor || ''))) {
-    const [year, month, day] = valor.split('-').map(Number);
+  const iso = normalizarAFechaISO(valor);
+  if (iso) {
+    const [year, month, day] = iso.split('-').map(Number);
     return new Date(year, month - 1, day);
   }
 
   return new Date();
 };
 
-export default function CalendarioModal({ visible, value, title = 'Seleccionar fecha', onSelect, onClose }) {
-  const [mesVisible, setMesVisible] = useState(() => fechaDesdeValor(value));
+export default function CalendarioModal({ visible, value, minDate = null, title = 'Seleccionar fecha', onSelect, onClose }) {
+  const [mesVisible, setMesVisible] = useState(() => fechaDesdeValor(value || minDate));
+
+  const minDateKey = useMemo(() => normalizarAFechaISO(minDate), [minDate]);
+  const valueKey = useMemo(() => normalizarAFechaISO(value), [value]);
 
   const diasMes = useMemo(() => {
     const year = mesVisible.getFullYear();
@@ -52,7 +73,9 @@ export default function CalendarioModal({ visible, value, title = 'Seleccionar f
 
   const seleccionar = (fecha) => {
     if (!fecha) return;
-    onSelect(toDateKey(fecha));
+    const key = toDateKey(fecha);
+    if (minDateKey && key < minDateKey) return;
+    onSelect(key);
   };
 
   return (
@@ -85,16 +108,26 @@ export default function CalendarioModal({ visible, value, title = 'Seleccionar f
           <View style={styles.daysGrid}>
             {diasMes.map((fecha, index) => {
               const key = fecha ? toDateKey(fecha) : `empty-${index}`;
-              const activo = fecha && key === value;
+              const esMenorQueMinimo = Boolean(fecha && minDateKey && key < minDateKey);
+              const deshabilitado = !fecha || esMenorQueMinimo;
+              const activo = fecha && key === valueKey;
 
               return (
                 <TouchableOpacity
                   key={key}
-                  style={[styles.dayCell, activo && styles.dayCellActive]}
-                  disabled={!fecha}
+                  style={[
+                    styles.dayCell,
+                    activo && styles.dayCellActive,
+                    esMenorQueMinimo && styles.dayCellDisabled
+                  ]}
+                  disabled={deshabilitado}
                   onPress={() => seleccionar(fecha)}
                 >
-                  <Text style={[styles.dayText, activo && styles.dayTextActive]}>
+                  <Text style={[
+                    styles.dayText,
+                    activo && styles.dayTextActive,
+                    esMenorQueMinimo && styles.dayTextDisabled
+                  ]}>
                     {fecha ? fecha.getDate() : ''}
                   </Text>
                 </TouchableOpacity>
@@ -120,6 +153,8 @@ const styles = StyleSheet.create({
   daysGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   dayCell: { width: '14.285%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: SIZES.radioBoton },
   dayCellActive: { backgroundColor: COLORS.azulMarino },
+  dayCellDisabled: { opacity: 0.25, backgroundColor: 'transparent' },
   dayText: { color: '#0f172a', fontWeight: '600' },
-  dayTextActive: { color: COLORS.blancoPuro }
+  dayTextActive: { color: COLORS.blancoPuro },
+  dayTextDisabled: { color: '#94a3b8' }
 });

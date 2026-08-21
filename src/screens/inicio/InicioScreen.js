@@ -38,6 +38,7 @@ export default function InicioScreen({ navigation }) {
     const [pantallaInterna, setPantallaInterna] = useState('menu');
     const [lotes, setLotes] = useState([]);
     const [refrescando, setRefrescando] = useState(false);
+    const [cargandoInicial, setCargandoInicial] = useState(Boolean(sesionActiva));
 
     // ESTADOS DE SUCURSALES
     const [sucursales, setSucursales] = useState([]);
@@ -45,6 +46,7 @@ export default function InicioScreen({ navigation }) {
     const [modalSucursalesVisible, setModalSucursalesVisible] = useState(false);
     const [cargandoSucursales, setCargandoSucursales] = useState(false);
 
+    // ANIMACIONES
     const fadeTitulo = useRef(new Animated.Value(0)).current;
     const fadeIcono = useRef(new Animated.Value(0)).current;
     const fadeTexto = useRef(new Animated.Value(0)).current;
@@ -61,9 +63,9 @@ export default function InicioScreen({ navigation }) {
         }
     }, [sesionActiva, fadeTitulo, fadeIcono, fadeTexto, fadeBotones]);
 
-    const cargarSucursales = async () => {
+    const cargarSucursales = useCallback(async () => {
         const idNegocioBase = usuario?.id_negocio || usuario?.negocio?.id_negocio;
-        if (!idNegocioBase) return;
+        if (!idNegocioBase) return null;
 
         if (!esPerfilAdministrador(usuario)) {
             const sucursalAsignada = {
@@ -79,7 +81,7 @@ export default function InicioScreen({ navigation }) {
                     ? actual
                     : sucursalAsignada
             ));
-            return;
+            return sucursalAsignada;
         }
 
         try {
@@ -91,54 +93,88 @@ export default function InicioScreen({ navigation }) {
 
             if (response.ok && result.success && Array.isArray(result.data)) {
                 setSucursales(result.data);
+                let seleccionada = null;
                 setSucursalActiva((actual) => {
                     const encontrada = result.data.find(
                         (sucursal) => String(sucursal.id_negocio) === String(actual?.id_negocio)
                     );
                     const siguiente = encontrada || result.data[0] || null;
+                    seleccionada = siguiente;
 
                     if (!actual || !siguiente) return siguiente;
                     const claves = new Set([...Object.keys(actual), ...Object.keys(siguiente)]);
                     const cambio = [...claves].some((clave) => actual[clave] !== siguiente[clave]);
                     return cambio ? siguiente : actual;
                 });
+                return seleccionada || result.data[0] || null;
             }
         } catch (error) {
             console.error('Error al cargar sucursales:', error);
         } finally {
             setCargandoSucursales(false);
         }
-    };
+        return null;
+    }, [usuario]);
 
-    const cargarLotes = async () => {
+    const cargarLotes = useCallback(async (idNegocioParam = null) => {
         if (!sesionActiva) return;
         try {
-            const idNegocioSeleccionado = sucursalActiva?.id_negocio || usuario?.id_negocio || usuario?.negocio?.id_negocio;
+            const idNegocioSeleccionado = idNegocioParam || sucursalActiva?.id_negocio || usuario?.id_negocio || usuario?.negocio?.id_negocio;
             if (!idNegocioSeleccionado) return;
 
             const response = await fetch(`${API_BASE_URL}/lotes?id_negocio=${idNegocioSeleccionado}`, {
                 headers: getAuthHeaders(usuario)
             });
             const result = await response.json();
-            if (response.ok && result.success !== false) setLotes(result.data || []);
+            if (response.ok && result.success !== false) {
+                setLotes(result.data || []);
+            }
         } catch (error) {
             setLotes([]);
         } finally {
             setRefrescando(false);
         }
-    };
+    }, [sesionActiva, sucursalActiva, usuario]);
+
+    // INICIALIZACIÓN COMPLETA DE DATOS
+    const inicializarDashboard = useCallback(async () => {
+        if (!sesionActiva) {
+            setCargandoInicial(false);
+            return;
+        }
+
+        setCargandoInicial(true);
+
+        try {
+            const sucursalRes = await cargarSucursales();
+            const idNegocio = sucursalRes?.id_negocio || usuario?.id_negocio || usuario?.negocio?.id_negocio;
+            if (idNegocio) {
+                await cargarLotes(idNegocio);
+            }
+        } catch (error) {
+            console.error('Error al inicializar dashboard:', error);
+        } finally {
+            setCargandoInicial(false);
+        }
+    }, [sesionActiva, usuario, cargarSucursales, cargarLotes]);
 
     useEffect(() => {
-        if (sesionActiva) cargarSucursales();
-    }, [sesionActiva]);
+        if (sesionActiva) {
+            inicializarDashboard();
+        } else {
+            setCargandoInicial(false);
+        }
+    }, [sesionActiva, inicializarDashboard]);
 
     useEffect(() => {
-        if (sucursalActiva) cargarLotes();
-    }, [sucursalActiva]);
+        if (sucursalActiva && !cargandoInicial) {
+            cargarLotes();
+        }
+    }, [sucursalActiva, cargandoInicial, cargarLotes]);
 
     useFocusEffect(
         useCallback(() => {
-            if (pantallaInterna === 'menu') {
+            if (pantallaInterna === 'menu' && !cargandoInicial) {
                 cargarLotes();
                 cargarSucursales();
             }
@@ -153,7 +189,7 @@ export default function InicioScreen({ navigation }) {
 
             const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
             return () => subscription.remove();
-        }, [pantallaInterna, sesionActiva, sucursalActiva])
+        }, [pantallaInterna, sesionActiva, sucursalActiva, cargandoInicial, cargarLotes, cargarSucursales])
     );
 
     const alArrastrarParaActualizar = () => {
@@ -184,6 +220,16 @@ export default function InicioScreen({ navigation }) {
                         <Text style={styles.textoBotonIniciarSesion}>Iniciar sesión</Text>
                     </TouchableOpacity>
                 </Animated.View>
+            </View>
+        );
+    }
+
+    if (cargandoInicial) {
+        return (
+            <View style={styles.cargando}>
+                <StatusBar barStyle="dark-content" backgroundColor={COLORS.blancoPuro} />
+                <ActivityIndicator size="large" color={COLORS.azulMarino} />
+                <Text style={styles.estadoTexto}>Cargando datos...</Text>
             </View>
         );
     }
@@ -451,6 +497,9 @@ export default function InicioScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+    cargando: { flex: 1, backgroundColor: COLORS.blancoPuro, alignItems: 'center', justifyContent: 'center' },
+    estadoTexto: { color: '#64748b', marginTop: 12, fontSize: 15, fontWeight: '500' },
+
     contenedorInvitacion: { flex: 1, backgroundColor: COLORS.azulMarino, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 },
     tituloInvitacion: { color: COLORS.blancoPuro, fontSize: SIZES.tituloPantalla, fontWeight: FONTS.bold, textAlign: 'center', marginBottom: 40 },
     iconoCuadrado: { width: 300, height: 300, borderRadius: 10, marginBottom: 40, backgroundColor: COLORS.blancoPuro, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8 },
@@ -459,7 +508,7 @@ const styles = StyleSheet.create({
     textoBotonRegistrar: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, fontWeight: FONTS.bold },
     botonIniciarSesion: { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.blancoPuro, width: '100%', paddingVertical: 15, borderRadius: SIZES.radioBoton, alignItems: 'center', marginBottom: 25 },
     textoBotonIniciarSesion: { color: COLORS.blancoPuro, fontSize: SIZES.textoBase, fontWeight: FONTS.bold },
-    
+
     contenedorAdmin: { flex: 1, backgroundColor: COLORS.blancoPuro, paddingHorizontal: 20, paddingTop: 15 },
     headerDashboard: { marginBottom: 15 },
     bienvenidaAdmin: { fontSize: 18, color: '#1e293b', marginBottom: 8 },

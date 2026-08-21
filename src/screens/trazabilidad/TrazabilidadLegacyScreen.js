@@ -54,8 +54,8 @@ export default function TrazabilidadScreen({ route, navigation }) {
         setDatosLote(null);
 
         try {
-            const idNumerico = parseInt(idLimpiado, 10); 
-            const response = await fetch(`${API_BASE_URL}/obtenerTrazabilidad?id_lote=${idNumerico}`);
+            const params = new URLSearchParams({ id_lote: idLimpiado });
+            const response = await fetch(`${API_BASE_URL}/obtenerTrazabilidad?${params.toString()}`);
             const result = await response.json();
 
             if (result.success) {

@@ -18,7 +18,13 @@ const leerSesionGuardada = async () => {
     const contenido = await FileSystem.readAsStringAsync(SESSION_FILE);
     const session = contenido ? JSON.parse(contenido) : null;
     const usuario = session?.usuario ? normalizarUsuarioSesion(session.usuario) : null;
-    return usuario && esTokenSesionVigente(usuario) ? usuario : null;
+    if (!usuario) return null;
+
+    const expiracion = obtenerExpiracionToken(usuario);
+    if (expiracion !== null && expiracion <= Date.now()) {
+      return null;
+    }
+    return usuario;
   } catch (error) {
     return null;
   }
@@ -76,7 +82,9 @@ export const AuthProvider = ({ children }) => {
     if (!sesionActiva || !usuario) return undefined;
 
     const expiracion = obtenerExpiracionToken(usuario);
-    const restante = expiracion ? expiracion - Date.now() : 0;
+    if (expiracion === null) return undefined;
+
+    const restante = expiracion - Date.now();
     if (restante <= 0) {
       setUsuario(null);
       setSesionActiva(false);

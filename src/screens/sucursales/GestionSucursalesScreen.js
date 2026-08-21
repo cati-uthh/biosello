@@ -214,48 +214,10 @@ export default function ActGestionSucursales({ onVolver }) {
         setPasoBorrado(1);
     };
 
-    // Advertencia 2 -> Autenticación Biométrica o Contraseña
-    const autenticarParaBorrado = async () => {
-        try {
-            const [compatible, registrado, biometriaActivada, contrasenaGuardada, identificadorGuardado] = await Promise.all([
-                LocalAuthentication.hasHardwareAsync(),
-                LocalAuthentication.isEnrolledAsync(),
-                SecureStore.getItemAsync(CLAVE_BIOMETRIA_ACTIVADA),
-                SecureStore.getItemAsync(CLAVE_PASS_GUARDADA),
-                SecureStore.getItemAsync(CLAVE_USUARIO_GUARDADO)
-            ]);
-            const identificadoresSesion = [
-                usuario?.email,
-                usuario?.correo,
-                usuario?.telefono,
-                usuario?.telefono_usuario,
-                usuario?.identificador
-            ].map(normalizarIdentificador).filter(Boolean);
-            const credencialPerteneceUsuario = identificadoresSesion.includes(
-                normalizarIdentificador(identificadorGuardado)
-            );
-
-            if (
-                compatible
-                && registrado
-                && biometriaActivada === 'true'
-                && contrasenaGuardada
-                && credencialPerteneceUsuario
-            ) {
-                const result = await LocalAuthentication.authenticateAsync({
-                    promptMessage: `Confirmar borrado de ${sucursalAEliminar?.nombre_sucursal}`,
-                    fallbackLabel: 'Usar contraseña'
-                });
-
-                if (result.success) {
-                    setPasswordConfirm(contrasenaGuardada);
-                    setPasoBorrado(3); // Salta directamente al paso 3 de confirmación
-                    return;
-                }
-            }
-        } catch (e) {}
-
-        setPasoBorrado(2); // Solicita contraseña
+    // Advertencia 2 -> Solicitud de Contraseña
+    const autenticarParaBorrado = () => {
+        setPasswordConfirm('');
+        setPasoBorrado(2);
     };
 
     // Ejecutar Eliminación Definitiva en Paso 3
@@ -282,8 +244,8 @@ export default function ActGestionSucursales({ onVolver }) {
                     setPasswordConfirm('');
                     setPasoBorrado(2);
                     Alert.alert(
-                        'Confirma tu contraseña',
-                        'La credencial biométrica guardada ya no es válida. Ingresa tu contraseña actual para continuar.'
+                        'Contraseña incorrecta',
+                        'La contraseña ingresada no coincide con tu cuenta. Ingresa tu contraseña actual para continuar.'
                     );
                     return;
                 }

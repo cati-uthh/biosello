@@ -1,6 +1,10 @@
+import * as SecureStore from 'expo-secure-store';
+
 export { API_BASE_URL } from '../config/api';
 
 export const normalizarUsuarioSesion = (data = {}) => {
+    if (!data || typeof data !== 'object') return null;
+
     const usuarioBase = data?.usuario || data?.user || data?.data || data;
     if (!usuarioBase || typeof usuarioBase !== 'object') return null;
 
@@ -12,15 +16,18 @@ export const normalizarUsuarioSesion = (data = {}) => {
         || usuarioBase?.access_token
         || null;
 
-    const id = usuarioBase.id_usuario || usuarioBase.id || usuarioBase.user_id || null;
-    const email = usuarioBase.email || usuarioBase.correo || null;
-    const nombre = usuarioBase.nombre || usuarioBase.name || null;
+    const id = usuarioBase.id_usuario || usuarioBase.id || usuarioBase.user_id || data?.id_usuario || data?.id || null;
+    const email = usuarioBase.email || usuarioBase.correo || data?.email || data?.correo || null;
+    const nombre = usuarioBase.nombre || usuarioBase.name || data?.nombre || data?.name || null;
 
     if (!id && !email && !nombre) return null;
 
     return {
+        ...data,
         ...usuarioBase,
         ...(id ? { id, id_usuario: id } : {}),
+        ...(email ? { email } : {}),
+        ...(nombre ? { nombre } : {}),
         ...(token ? { token } : {})
     };
 };
@@ -99,3 +106,60 @@ export const normalizarPerfilAcceso = (perfil) => {
 };
 
 export const esPerfilAdministrador = (usuario) => normalizarPerfilAcceso(usuario?.perfil) === 'admin';
+
+const CLAVE_BIOMETRIA_DATOS = 'biosello_biometria_cuenta_datos';
+const DURACION_BIOMETRIA_MS = 30 * 24 * 60 * 60 * 1000; // 30 días en milisegundos
+
+// Función para guardar credenciales biométricas vinculadas a la cuenta con marca de tiempo
+export const guardarBiometriaCuenta = async (identificador, contrasena) => {
+    try {
+        const payload = JSON.stringify({
+            identificador: String(identificador || '').trim().toLowerCase(),
+            contrasena: String(contrasena || ''),
+            activadoEn: Date.now()
+        });
+        await SecureStore.setItemAsync(CLAVE_BIOMETRIA_DATOS, payload);
+        return true;
+    } catch (error) {
+        return false;
+    }
+};
+
+// Función para obtener la credencial biométrica guardada comprobando el límite de 30 días
+export const obtenerBiometriaCuenta = async () => {
+    try {
+        const raw = await SecureStore.getItemAsync(CLAVE_BIOMETRIA_DATOS);
+        if (!raw) return null;
+
+        const datos = JSON.parse(raw);
+        if (!datos?.identificador || !datos?.contrasena || !datos?.activadoEn) {
+            await eliminarBiometriaCuenta();
+            return null;
+        }
+
+        const tiempoTranscurrido = Date.now() - Number(datos.activadoEn);
+        if (tiempoTranscurrido > DURACION_BIOMETRIA_MS) {
+            await eliminarBiometriaCuenta();
+            return null;
+        }
+
+        return datos;
+    } catch (error) {
+        return null;
+    }
+};
+
+// Función para eliminar completamente las credenciales biométricas guardadas
+export const eliminarBiometriaCuenta = async () => {
+    try {
+        await Promise.all([
+            SecureStore.deleteItemAsync(CLAVE_BIOMETRIA_DATOS),
+            SecureStore.deleteItemAsync('biosello_usuario_identificador'),
+            SecureStore.deleteItemAsync('biosello_usuario_pass'),
+            SecureStore.deleteItemAsync('biosello_biometria_activada')
+        ]);
+        return true;
+    } catch (error) {
+        return false;
+    }
+};

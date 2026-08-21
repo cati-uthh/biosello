@@ -233,13 +233,18 @@ export default function GenerarQR({ onVolver, idNegocio, nombreNegocio }) {
             ) : (
                 <View style={styles.contenedorEtiqueta}>
                     {(() => {
-                        const codigoTrazabilidad = String(loteSeleccionado.id_lote).padStart(10, '0');
+                        const idCorteActual = corteSeleccionadoObj?.id_corte || loteSeleccionado.id_corte || null;
+                        const codigoBase = loteSeleccionado.codigo_lote || String(loteSeleccionado.id_lote).padStart(10, '0');
+                        const codigoTrazabilidad = idCorteActual 
+                            ? `${codigoBase}-C${String(idCorteActual).padStart(2, '0')}`
+                            : codigoBase;
+
                         const valorQR = crearValorQR(
                             loteSeleccionado,
                             usuario,
                             idNegocioActivo,
                             {
-                                id_corte: corteSeleccionadoObj?.id_corte || loteSeleccionado.id_corte || null,
+                                id_corte: idCorteActual,
                                 incluir_tip_cuidado: incluirTipCuidado,
                                 incluir_recomendacion: incluirRecomendacion
                             }
